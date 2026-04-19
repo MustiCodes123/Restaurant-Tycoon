@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7b8242d0af10ff42b6c02249387f1e3, type: 3}
+  m_Name: Coffee guy
+  m_EditorClassIdentifier: Assembly-CSharp::ServiceGuyUnlockData
+  requiredPlayerLevel: 8
+  unlockCost: 100
+  serviceGuyName: Staff
+  description: 
+  serviceGuyPrefab: {fileID: 980256504704434897, guid: bc494895cc40a6942818c90becb591b2, type: 3}
+  moveSpeed: 0.2
+  serviceDuration: 2

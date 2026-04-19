@@ -79,9 +79,10 @@ public class SettingsManager : MonoBehaviour
     private void OnMusicVolumeChanged(float value)
     {
         if (AudioManager.Instance != null)
-        {
             AudioManager.Instance.SetMusicVolume(value);
-        }
+
+        if (RestaurantTycoon.RTAudioInitializer.Instance != null)
+            RestaurantTycoon.RTAudioInitializer.Instance.SetMusicVolume(value);
     }
     
     private void OnSFXVolumeChanged(float value)
@@ -89,18 +90,20 @@ public class SettingsManager : MonoBehaviour
         if (AudioManager.Instance != null)
         {
             AudioManager.Instance.SetSFXVolume(value);
-            
-            // Play a test sound when adjusting SFX volume
             AudioManager.Instance.PlaySFX(SoundEffect.ButtonClick);
         }
+
+        if (RestaurantTycoon.RTAudioInitializer.Instance != null)
+            RestaurantTycoon.RTAudioInitializer.Instance.SetSFXVolume(value);
     }
     
     private void OnMusicToggleChanged(bool enabled)
     {
         if (AudioManager.Instance != null)
-        {
             AudioManager.Instance.SetMusicEnabled(enabled);
-        }
+
+        if (RestaurantTycoon.RTAudioInitializer.Instance != null)
+            RestaurantTycoon.RTAudioInitializer.Instance.SetMusicEnabled(enabled);
     }
     
     private void OnSFXToggleChanged(bool enabled)
@@ -108,13 +111,12 @@ public class SettingsManager : MonoBehaviour
         if (AudioManager.Instance != null)
         {
             AudioManager.Instance.SetSFXEnabled(enabled);
-            
-            // Play a test sound when enabling SFX
             if (enabled)
-            {
                 AudioManager.Instance.PlaySFX(SoundEffect.ButtonClick);
-            }
         }
+
+        if (RestaurantTycoon.RTAudioInitializer.Instance != null)
+            RestaurantTycoon.RTAudioInitializer.Instance.SetSFXEnabled(enabled);
     }
     
     private void OpenSettings()

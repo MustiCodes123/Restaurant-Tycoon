@@ -12,7 +12,9 @@ public enum SoundEffect
     ClockTick,
     FoodPreparing,
     ItemPickup,
-    GarbageDrop
+    GarbageDrop,
+    CookingDone,
+    ItemPlace
 }
 
 public enum MusicTrack
@@ -43,6 +45,8 @@ public class AudioManager : MonoBehaviour
     [SerializeField] private AudioClip foodPreparingClip;
     [SerializeField] private AudioClip itemPickupClip;
     [SerializeField] private AudioClip garbageDropClip;
+    [SerializeField] private AudioClip cookingDoneClip;
+    [SerializeField] private AudioClip itemPlaceClip;
 
     [Header("Music Tracks")]
     [SerializeField] private AudioClip mall1BackgroundClip;
@@ -91,6 +95,12 @@ public class AudioManager : MonoBehaviour
         
         savedSFXVolume = PlayerPrefs.GetFloat(SFX_VOLUME_KEY, defaultSFXVolume);
         savedMusicVolume = PlayerPrefs.GetFloat(MUSIC_VOLUME_KEY, defaultMusicVolume);
+
+        // Safety: if stored volume is 0, reset to defaults
+        if (savedSFXVolume <= 0f) savedSFXVolume = defaultSFXVolume;
+        if (savedMusicVolume <= 0f) savedMusicVolume = defaultMusicVolume;
+
+        Debug.Log($"[AudioManager] LoadSettings - sfxEnabled:{sfxEnabled}, musicEnabled:{musicEnabled}, sfxVol:{savedSFXVolume}, musicVol:{savedMusicVolume}, sfxSource:{sfxAudioSource != null}, musicSource:{musicAudioSource != null}");
         
         if (sfxAudioSource != null)
             sfxAudioSource.volume = sfxEnabled ? savedSFXVolume : 0f;
@@ -112,12 +122,26 @@ public class AudioManager : MonoBehaviour
 
     public void PlaySFX(SoundEffect sound)
     {
-        if (!sfxEnabled || sfxAudioSource == null) return;
+        if (!sfxEnabled)
+        {
+            Debug.LogWarning($"[AudioManager] PlaySFX({sound}) skipped — SFX disabled");
+            return;
+        }
+        if (sfxAudioSource == null)
+        {
+            Debug.LogError($"[AudioManager] PlaySFX({sound}) skipped — sfxAudioSource is NULL");
+            return;
+        }
 
         AudioClip clip = GetSFXClip(sound);
         if (clip != null)
         {
-            sfxAudioSource.PlayOneShot(clip);
+            sfxAudioSource.PlayOneShot(clip, savedSFXVolume);
+            Debug.Log($"[AudioManager] PlaySFX({sound}) — playing clip '{clip.name}', vol:{sfxAudioSource.volume}");
+        }
+        else
+        {
+            Debug.LogWarning($"[AudioManager] No AudioClip assigned for SoundEffect.{sound}");
         }
     }
 
@@ -179,6 +203,8 @@ public class AudioManager : MonoBehaviour
             SoundEffect.FoodPreparing => foodPreparingClip,
             SoundEffect.ItemPickup => itemPickupClip,
             SoundEffect.GarbageDrop => garbageDropClip,
+            SoundEffect.CookingDone => cookingDoneClip,
+            SoundEffect.ItemPlace => itemPlaceClip,
             _ => null
         };
     }
@@ -212,14 +238,27 @@ public class AudioManager : MonoBehaviour
 
     public void PlayMusic(MusicTrack track, bool fade = true)
     {
-        if (track == currentMusicTrack && currentWorldMusicIndex == -1) return;
+        Debug.Log($"[AudioManager] PlayMusic({track}) called — current:{currentMusicTrack}, musicSource:{musicAudioSource != null}, musicEnabled:{musicEnabled}, vol:{savedMusicVolume}");
+
+        if (track == currentMusicTrack && currentWorldMusicIndex == -1)
+        {
+            Debug.Log($"[AudioManager] PlayMusic({track}) skipped — already playing this track");
+            return;
+        }
         
         currentMusicTrack = track;
         currentWorldMusicIndex = -1;
         
-        if (musicAudioSource == null) return;
+        if (musicAudioSource == null)
+        {
+            Debug.LogError("[AudioManager] PlayMusic — musicAudioSource is NULL!");
+            return;
+        }
 
         AudioClip clip = GetMusicClip(track);
+
+        if (clip == null && track != MusicTrack.None)
+            Debug.LogError($"[AudioManager] No AudioClip assigned for MusicTrack.{track}! Assign it in the Inspector.");
         
         if (fadeCoroutine != null)
         {
@@ -233,13 +272,16 @@ public class AudioManager : MonoBehaviour
         else
         {
             musicAudioSource.clip = clip;
+            musicAudioSource.volume = savedMusicVolume;
             if (clip != null && musicEnabled)
             {
                 musicAudioSource.Play();
+                Debug.Log($"[AudioManager] Music started: '{clip.name}', vol:{musicAudioSource.volume}");
             }
             else
             {
                 musicAudioSource.Stop();
+                Debug.LogWarning($"[AudioManager] Music NOT started — clip:{(clip != null ? clip.name : "NULL")}, enabled:{musicEnabled}");
             }
         }
     }
