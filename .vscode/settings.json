@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Restaurant Tycoon.slnx"
+    "dotnet.defaultSolution": "Restaurant-Tycoon.slnx"
 }
