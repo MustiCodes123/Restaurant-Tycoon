@@ -9,6 +9,10 @@ namespace RestaurantTycoon
     /// </summary>
     public class RTIngredient : MonoBehaviour, IRTCarryable
     {
+        [Header("Type")]
+        [Tooltip("The type of this ingredient. Must match the RTCookInputContainer that should accept it.")]
+        [SerializeField] private RTIngredientType ingredientType;
+
         [Header("Animation")]
         [SerializeField] private float spawnPopScale = 1.2f;
         [SerializeField] private float spawnPopDuration = 0.3f;
@@ -19,6 +23,7 @@ namespace RestaurantTycoon
         public CarryableType CarryType => CarryableType.Ingredient;
         public GameObject GameObject => gameObject;
         public bool IsPickedUp => isPickedUp;
+        public RTIngredientType IngredientType => ingredientType;
 
         public void PlaySpawnAnimation()
         {

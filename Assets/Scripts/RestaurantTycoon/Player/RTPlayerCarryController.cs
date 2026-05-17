@@ -179,6 +179,16 @@ namespace RestaurantTycoon
         }
 
         /// <summary>
+        /// Peek at the top item without removing it. Returns null if stack is empty or type doesn't match.
+        /// </summary>
+        public IRTCarryable PeekTopItem(CarryableType type)
+        {
+            if (carriedItems.Count == 0) return null;
+            IRTCarryable topItem = carriedItems[carriedItems.Count - 1];
+            return topItem.CarryType == type ? topItem : null;
+        }
+
+        /// <summary>
         /// Take the top item off the stack if it matches the requested type.
         /// Returns null if stack is empty or top item doesn't match.
         /// </summary>

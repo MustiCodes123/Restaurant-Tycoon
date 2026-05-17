@@ -68,6 +68,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf330904f732951468418742892fd72a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTIngredient
+  ingredientType: {fileID: 11400000, guid: cf6e36ac7eab6894b9a00d042261b1eb, type: 2}
   spawnPopScale: 1.2
   spawnPopDuration: 0.3
   spawnPopEase: 27

@@ -14,6 +14,10 @@ namespace RestaurantTycoon
     /// </summary>
     public class RTCookInputContainer : MonoBehaviour
     {
+        [Header("Ingredient Filter")]
+        [Tooltip("Only ingredients of this type will be accepted. Leave empty to accept any ingredient.")]
+        [SerializeField] private RTIngredientType acceptedIngredientType;
+
         [Header("Slots")]
         [Tooltip("Points where dropped ingredients sit visually. First is bottom.")]
         [SerializeField] private List<Transform> inputSlots = new List<Transform>();
@@ -126,6 +130,18 @@ namespace RestaurantTycoon
                 {
                     yield return new WaitForSeconds(0.2f);
                     continue;
+                }
+
+                // Check the top ingredient type before taking it
+                if (acceptedIngredientType != null)
+                {
+                    IRTCarryable peeked = playerCarryController.PeekTopItem(CarryableType.Ingredient);
+                    RTIngredient peekedIngredient = peeked?.GameObject.GetComponent<RTIngredient>();
+                    if (peekedIngredient == null || peekedIngredient.IngredientType != acceptedIngredientType)
+                    {
+                        yield return new WaitForSeconds(0.2f);
+                        continue;
+                    }
                 }
 
                 // Take ingredient from player
