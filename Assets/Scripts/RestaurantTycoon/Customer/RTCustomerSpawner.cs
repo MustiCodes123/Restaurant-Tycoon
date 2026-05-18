@@ -23,8 +23,9 @@ namespace RestaurantTycoon
         [Tooltip("Delay before starting the next batch after all customers exit")]
         [SerializeField] private float batchDelay = 2f;
 
-        [Header("Target Counter")]
-        [SerializeField] private RTCustomerCounter targetCounter;
+        [Header("Target Counters")]
+        [Tooltip("All counters in the scene. Each spawned customer is randomly assigned one.")]
+        [SerializeField] private List<RTCustomerCounter> targetCounters = new List<RTCustomerCounter>();
 
         [Header("Dining")]
         [SerializeField] private RTDiningArea diningArea;
@@ -44,25 +45,38 @@ namespace RestaurantTycoon
         public int ActiveCount => activeCustomers.Count;
         public bool IsSpawning => isSpawning;
 
+        private bool AnyCounterAvailable => targetCounters.Exists(c => c != null && c.CanAcceptCustomer);
+
+        private RTCustomerCounter GetRandomAvailableCounter()
+        {
+            List<RTCustomerCounter> available = targetCounters.FindAll(c => c != null && c.CanAcceptCustomer);
+            if (available.Count == 0) return null;
+            return available[Random.Range(0, available.Count)];
+        }
+
         private void Start()
         {
             if (spawnPoint == null) spawnPoint = transform;
 
-            // Auto-find counter if not assigned
-            if (targetCounter == null)
-                targetCounter = FindObjectOfType<RTCustomerCounter>();
+            // Auto-find counters if none assigned
+            if (targetCounters.Count == 0)
+            {
+                targetCounters.AddRange(FindObjectsOfType<RTCustomerCounter>());
+            }
 
-            // Subscribe to item placed events to notify waiting customers
-            if (targetCounter != null)
-                targetCounter.OnItemPlaced += OnItemPlacedOnCounter;
+            // Subscribe to item placed events on all counters
+            foreach (var counter in targetCounters)
+                if (counter != null)
+                    counter.OnItemPlaced += OnItemPlacedOnCounter;
 
             StartCoroutine(BatchLoop());
         }
 
         private void OnDestroy()
         {
-            if (targetCounter != null)
-                targetCounter.OnItemPlaced -= OnItemPlacedOnCounter;
+            foreach (var counter in targetCounters)
+                if (counter != null)
+                    counter.OnItemPlaced -= OnItemPlacedOnCounter;
         }
 
         private IEnumerator BatchLoop()
@@ -89,8 +103,8 @@ namespace RestaurantTycoon
 
             for (int i = 0; i < customerCount; i++)
             {
-                // Wait for queue space
-                while (targetCounter != null && !targetCounter.CanAcceptCustomer)
+                // Wait until at least one counter has queue space
+                while (!AnyCounterAvailable)
                     yield return new WaitForSeconds(0.3f);
 
                 SpawnOneCustomer();
@@ -111,9 +125,10 @@ namespace RestaurantTycoon
                 return;
             }
 
-            if (targetCounter == null)
+            RTCustomerCounter counter = GetRandomAvailableCounter();
+            if (counter == null)
             {
-                Debug.LogError("[RTCustomerSpawner] targetCounter is null!");
+                Debug.LogError("[RTCustomerSpawner] No available counter to assign!");
                 return;
             }
 
@@ -131,9 +146,9 @@ namespace RestaurantTycoon
             }
 
             activeCustomers.Add(customer);
-            customer.Initialize(targetCounter, exitPoint, this, customerSkins, diningArea, cashier);
+            customer.Initialize(counter, exitPoint, this, customerSkins, diningArea, cashier);
 
-            Debug.Log($"[RTCustomerSpawner] Spawned customer. Active: {activeCustomers.Count}/{currentBatchTotal}");
+            Debug.Log($"[RTCustomerSpawner] Spawned customer -> counter '{counter.name}'. Active: {activeCustomers.Count}/{currentBatchTotal}");
         }
 
         /// <summary>
@@ -146,16 +161,16 @@ namespace RestaurantTycoon
         }
 
         /// <summary>
-        /// When an item is placed on the counter, notify the front customer.
+        /// When an item is placed on any counter, notify that counter's front customer.
         /// </summary>
         private void OnItemPlacedOnCounter()
         {
-            if (targetCounter == null) return;
-
-            RTCustomer front = targetCounter.GetFrontCustomer();
-            if (front != null && front.IsWaitingAtCounter)
+            foreach (var counter in targetCounters)
             {
-                front.TryPickUpItem();
+                if (counter == null) continue;
+                RTCustomer front = counter.GetFrontCustomer();
+                if (front != null && front.IsWaitingAtCounter)
+                    front.TryPickUpItem();
             }
         }
 
@@ -181,11 +196,12 @@ namespace RestaurantTycoon
                 Gizmos.DrawWireSphere(exitPoint.position, 0.5f);
             }
 
-            if (targetCounter != null)
+            Gizmos.color = Color.yellow;
+            foreach (var counter in targetCounters)
             {
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawLine(spawnPoint != null ? spawnPoint.position : transform.position,
-                    targetCounter.transform.position);
+                if (counter != null)
+                    Gizmos.DrawLine(spawnPoint != null ? spawnPoint.position : transform.position,
+                        counter.transform.position);
             }
         }
     }

@@ -14,6 +14,10 @@ namespace RestaurantTycoon
     /// </summary>
     public class RTCustomerCounter : MonoBehaviour
     {
+        [Header("Item Type")]
+        [Tooltip("The ingredient type this counter serves. Customers are assigned to a counter matching their ordered item.")]
+        [SerializeField] private RTIngredientType acceptedItemType;
+
         [Header("Item Slots")]
         [Tooltip("Points where finished items sit on the counter. First is bottom.")]
         [SerializeField] private List<Transform> itemSlots = new List<Transform>();
@@ -62,6 +66,7 @@ namespace RestaurantTycoon
         public bool HasItem => StoredCount > 0;
         public int QueueCount => customerQueue.Count;
         public bool CanAcceptCustomer => customerQueue.Count < maxQueueSize;
+        public RTIngredientType AcceptedItemType => acceptedItemType;
 
         private void Start()
         {
@@ -128,6 +133,18 @@ namespace RestaurantTycoon
                 {
                     yield return new WaitForSeconds(0.2f);
                     continue;
+                }
+
+                // If this counter has a type filter, peek before taking
+                if (acceptedItemType != null)
+                {
+                    IRTCarryable peeked = playerCarryController.PeekTopItem(CarryableType.FinishedItem);
+                    RTFinishedItem peekedItem = peeked?.GameObject.GetComponent<RTFinishedItem>();
+                    if (peekedItem == null || peekedItem.ItemType != acceptedItemType)
+                    {
+                        yield return new WaitForSeconds(0.2f);
+                        continue;
+                    }
                 }
 
                 IRTCarryable item = playerCarryController.TakeTopItem(CarryableType.FinishedItem);

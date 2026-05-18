@@ -30,7 +30,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.000000021855694, y: -0.0000028312206, z: 6.217249e-14, w: -1}
   m_LocalPosition: {x: -4.6463585, y: 0.05907004, z: 21.68014}
-  m_LocalScale: {x: 1.04, y: 1.04, z: 1.04}
+  m_LocalScale: {x: 1.8, y: 1.8, z: 1.8}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4572817522878791943}
@@ -127,6 +127,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86ff3970cd26fe84187c1389e203a73f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTFinishedItem
+  itemType: {fileID: 11400000, guid: 4f08b6dd520ca7b41a0759ed75b0cc2b, type: 2}
   spawnPopScale: 1.2
   spawnPopDuration: 0.3
   spawnPopEase: 27

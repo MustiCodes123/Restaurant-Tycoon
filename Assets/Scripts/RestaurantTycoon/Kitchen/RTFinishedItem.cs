@@ -10,6 +10,10 @@ namespace RestaurantTycoon
     /// </summary>
     public class RTFinishedItem : MonoBehaviour, IRTCarryable
     {
+        [Header("Type")]
+        [Tooltip("Must match the RTCustomerCounter that should accept this item.")]
+        [SerializeField] private RTIngredientType itemType;
+
         [Header("Animation")]
         [SerializeField] private float spawnPopScale = 1.2f;
         [SerializeField] private float spawnPopDuration = 0.3f;
@@ -20,6 +24,7 @@ namespace RestaurantTycoon
         public CarryableType CarryType => CarryableType.FinishedItem;
         public GameObject GameObject => gameObject;
         public bool IsPickedUp => isPickedUp;
+        public RTIngredientType ItemType => itemType;
 
         public void PlaySpawnAnimation()
         {
