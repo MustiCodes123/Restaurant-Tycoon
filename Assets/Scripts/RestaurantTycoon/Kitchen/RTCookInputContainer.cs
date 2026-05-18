@@ -232,5 +232,43 @@ namespace RestaurantTycoon
         }
 
         #endregion
+
+        #region Porter Delivery
+
+        /// <summary>
+        /// Called by RTPorterController to place an ingredient directly into a slot.
+        /// The ingredient is snapped/animated to the slot position.
+        /// Returns false if the container is full.
+        /// </summary>
+        public bool ReceiveIngredient(RTIngredient ingredient)
+        {
+            if (ingredient == null || IsFull) return false;
+
+            int slotIndex = GetFirstEmptySlot();
+            if (slotIndex < 0) return false;
+
+            storedIngredients[slotIndex] = ingredient;
+            Transform slot = inputSlots[slotIndex];
+
+            Vector3 savedScale = ingredient.transform.lossyScale;
+            DOTween.Kill(ingredient.transform, true);
+            ingredient.transform.SetParent(null);
+            ingredient.transform.localScale = savedScale;
+
+            ingredient.transform
+                .DOJump(slot.position, dropJumpHeight, 1, dropDuration)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(() =>
+                {
+                    ingredient.transform.position = slot.position;
+                    ingredient.transform.rotation = slot.rotation;
+                });
+
+            Debug.Log($"[RTCookInputContainer] Porter delivered ingredient to slot {slotIndex}. Stored: {StoredCount}/{SlotCount}");
+            OnIngredientAdded?.Invoke();
+            return true;
+        }
+
+        #endregion
     }
 }

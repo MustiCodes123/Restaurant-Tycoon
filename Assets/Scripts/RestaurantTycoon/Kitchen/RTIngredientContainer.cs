@@ -265,5 +265,33 @@ namespace RestaurantTycoon
         }
 
         #endregion
+
+        #region Porter Access
+
+        /// <summary>
+        /// Called by RTPorterController to take the topmost available ingredient.
+        /// Triggers a restock after taking. Returns null if empty.
+        /// </summary>
+        public RTIngredient TakeTopIngredient()
+        {
+            for (int i = stockSlots.Count - 1; i >= 0; i--)
+            {
+                if (stockedIngredients[i] != null)
+                {
+                    RTIngredient ingredient = stockedIngredients[i];
+                    DOTween.Kill(ingredient.transform, true);
+                    stockedIngredients[i] = null;
+
+                    if (!IsFull && !isRestocking)
+                        StartRestock();
+
+                    Debug.Log($"[RTIngredientContainer] Porter took ingredient from slot {i}. Remaining: {StockedCount}/{SlotCount}");
+                    return ingredient;
+                }
+            }
+            return null;
+        }
+
+        #endregion
     }
 }
