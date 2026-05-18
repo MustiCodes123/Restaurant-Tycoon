@@ -91,6 +91,21 @@ namespace RestaurantTycoon
             GoToNearestIdleSpot();
         }
 
+        /// <summary>
+        /// Called by RTJanitorUnlock after the janitor is spawned at runtime.
+        /// Overrides Inspector-set references so the janitor is fully wired up
+        /// without needing them pre-assigned on the prefab.
+        /// </summary>
+        public void Initialize(RTDiningArea area, Transform binTransform, System.Collections.Generic.List<Transform> spots, float speed)
+        {
+            diningArea = area;
+            garbageBinTransform = binTransform;
+            if (spots != null) idleSpots = spots;
+            if (speed > 0f && agent != null) agent.speed = speed;
+
+            GoToNearestIdleSpot();
+        }
+
         private void Update()
         {
             switch (currentState)
