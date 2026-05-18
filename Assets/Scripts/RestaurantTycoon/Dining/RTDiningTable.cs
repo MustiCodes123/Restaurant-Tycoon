@@ -41,6 +41,7 @@ namespace RestaurantTycoon
         public Transform ItemPlacementPoint => itemPlacementPoint;
         public Vector3 ItemStackOffset => itemStackOffset;
         public bool HasDirtyDishes => dirtyDishes.Count > 0;
+        public int DirtyDishCount => dirtyDishes.Count;
 
         public event Action OnDishesCleared;
 
@@ -85,6 +86,18 @@ namespace RestaurantTycoon
         #endregion
 
         #region Dirty Dishes
+
+        /// <summary>
+        /// Called by the RT janitor to take all dirty dishes at once.
+        /// Removes them from the internal list and marks the table clean.
+        /// </summary>
+        public List<RTDirtyDish> TakeAllDirtyDishes()
+        {
+            List<RTDirtyDish> taken = new List<RTDirtyDish>(dirtyDishes);
+            dirtyDishes.Clear();
+            CheckCleanState();
+            return taken;
+        }
 
         /// <summary>
         /// Spawn a dirty dish at the given world position.

@@ -14,6 +14,7 @@ namespace RestaurantTycoon
         [SerializeField] private List<RTDiningTable> tables = new List<RTDiningTable>();
 
         public event Action OnSeatBecameAvailable;
+        public List<RTDiningTable> Tables => tables;
 
         private void Awake()
         {
