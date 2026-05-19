@@ -51,18 +51,55 @@ namespace RestaurantTycoon
         private void Start()
         {
             LoadUnlockState();
-            ApplyUnlockState();
+
+            if (isUnlocked)
+            {
+                // Already unlocked: apply state immediately.
+                ApplyUnlockState();
+            }
+            else
+            {
+                // Show hide-objects (lock icons, placeholders) right away.
+                foreach (var obj in objectsToHide)
+                    if (obj != null) obj.SetActive(true);
+
+                // Delay disabling objectsToEnable by 2 frames.
+                // NavMeshAgents (and other components) on those objects must run
+                // Awake/OnEnable at least once so they register with Unity systems.
+                // If we SetActive(false) immediately they never register, and when
+                // re-enabled on unlock they fail with "not close enough to NavMesh".
+                StartCoroutine(DelayedHideLockedObjects());
+            }
 
             if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.OnLevelUp += OnPlayerLevelUp;
+            {
+                RTLevelManager.Instance.OnLevelUp     += OnPlayerLevelUp;
+                RTLevelManager.Instance.OnLevelLoaded += OnPlayerLevelUp;
+            }
 
             CheckUnlockAvailability();
+        }
+
+        private System.Collections.IEnumerator DelayedHideLockedObjects()
+        {
+            // Wait 2 frames so child components (e.g. NavMeshAgent) can fully initialise.
+            yield return null;
+            yield return null;
+
+            if (!isUnlocked)
+            {
+                foreach (var obj in objectsToEnable)
+                    if (obj != null) obj.SetActive(false);
+            }
         }
 
         private void OnDestroy()
         {
             if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.OnLevelUp -= OnPlayerLevelUp;
+            {
+                RTLevelManager.Instance.OnLevelUp     -= OnPlayerLevelUp;
+                RTLevelManager.Instance.OnLevelLoaded -= OnPlayerLevelUp;
+            }
         }
 
         private void OnPlayerLevelUp(int newLevel) => CheckUnlockAvailability();
@@ -88,11 +125,16 @@ namespace RestaurantTycoon
             if (playerLevel >= unlockData.RequiredPlayerLevel)
             {
                 ShowUnlockSpot();
+                Debug.Log($"[RTSceneObjectUnlock] '{unlockData.UnlockName}' available at level {playerLevel} (required {unlockData.RequiredPlayerLevel}). Registering mission. DynamicMissionManager: {(DynamicMissionManager.Instance != null ? "found" : "NULL")}");
+                DynamicMissionManager.Instance?.RegisterSceneObjectUnlockMission(
+                    unlockData.UnlockName,
+                    unlockData.UnlockName);
                 OnUnlockAvailable?.Invoke();
             }
             else
             {
                 HideUnlockSpot();
+                Debug.Log($"[RTSceneObjectUnlock] '{unlockData.UnlockName}' not yet available. Level {playerLevel} / {unlockData.RequiredPlayerLevel}");
                 OnUnlockUnavailable?.Invoke();
             }
         }
@@ -116,6 +158,7 @@ namespace RestaurantTycoon
                 if (obj != null) ActivateWithPop(obj);
 
             OnUnlocked?.Invoke();
+            DynamicMissionManager.Instance?.CompleteSceneObjectUnlockMission(unlockData?.UnlockName);
             Debug.Log($"[RTSceneObjectUnlock] '{unlockData?.UnlockName ?? gameObject.name}' unlocked!");
         }
 
@@ -168,8 +211,10 @@ namespace RestaurantTycoon
             if (obj == null) return;
 
             Vector3 originalScale = obj.transform.localScale;
-            obj.transform.localScale = Vector3.zero;
+            // Enable first so NavMeshAgent (and other components) re-register
+            // from the correct world position before any scale manipulation.
             obj.SetActive(true);
+            obj.transform.localScale = Vector3.zero;
 
             obj.transform.DOScale(originalScale, popDuration)
                 .SetEase(popEase)

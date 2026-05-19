@@ -42,6 +42,7 @@ namespace RestaurantTycoon
         {
             foreach (var table in tables)
             {
+                if (table == null || !table.gameObject.activeInHierarchy) continue;
                 RTDiningSeat seat = table.GetAvailableSeat();
                 if (seat != null) return seat;
             }
@@ -51,7 +52,7 @@ namespace RestaurantTycoon
         public bool HasAvailableSeat()
         {
             foreach (var table in tables)
-                if (table.HasAvailableSeat()) return true;
+                if (table != null && table.gameObject.activeInHierarchy && table.HasAvailableSeat()) return true;
             return false;
         }
 
@@ -59,7 +60,8 @@ namespace RestaurantTycoon
         {
             int count = 0;
             foreach (var table in tables)
-                count += table.GetAvailableSeatCount();
+                if (table != null && table.gameObject.activeInHierarchy)
+                    count += table.GetAvailableSeatCount();
             return count;
         }
     }

@@ -9,7 +9,9 @@ public enum DynamicMissionType
     UnlockJanitor,
     UnlockServiceGuy,
     UnlockTableCleaner,
-    UnlockWashroom
+    UnlockWashroom,
+    UnlockCook,
+    UnlockSceneObject
 }
 
 [Serializable]
@@ -367,6 +369,54 @@ public class DynamicMissionManager : MonoBehaviour
     {
         string missionId = $"UnlockWashroom_{washroomId}";
         RemoveMission(missionId);
+    }
+
+    // ── Cook ─────────────────────────────────────────────────────────────────
+
+    public void RegisterCookUnlockMission(string cookId, string cookName)
+    {
+        string missionId = $"UnlockCook_{cookId}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.UnlockCook, $"Hire {cookName}");
+        activeMissions[missionId] = mission;
+        SaveMissions();
+        Log($"Registered cook unlock mission: {mission.displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteCookUnlockMission(string cookId)
+    {
+        CompleteMission($"UnlockCook_{cookId}");
+    }
+
+    public void RemoveCookUnlockMission(string cookId)
+    {
+        RemoveMission($"UnlockCook_{cookId}");
+    }
+
+    // ── Scene Object ─────────────────────────────────────────────────────────
+
+    public void RegisterSceneObjectUnlockMission(string objectId, string objectName)
+    {
+        string missionId = $"UnlockSceneObject_{objectId}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.UnlockSceneObject, $"Unlock {objectName}");
+        activeMissions[missionId] = mission;
+        SaveMissions();
+        Log($"Registered scene object unlock mission: {mission.displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteSceneObjectUnlockMission(string objectId)
+    {
+        CompleteMission($"UnlockSceneObject_{objectId}");
+    }
+
+    public void RemoveSceneObjectUnlockMission(string objectId)
+    {
+        RemoveMission($"UnlockSceneObject_{objectId}");
     }
     
     /// <summary>

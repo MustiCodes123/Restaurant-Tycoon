@@ -45,11 +45,11 @@ namespace RestaurantTycoon
         public int ActiveCount => activeCustomers.Count;
         public bool IsSpawning => isSpawning;
 
-        private bool AnyCounterAvailable => targetCounters.Exists(c => c != null && c.CanAcceptCustomer);
+        private bool AnyCounterAvailable => targetCounters.Exists(c => c != null && c.gameObject.activeInHierarchy && c.CanAcceptCustomer);
 
         private RTCustomerCounter GetRandomAvailableCounter()
         {
-            List<RTCustomerCounter> available = targetCounters.FindAll(c => c != null && c.CanAcceptCustomer);
+            List<RTCustomerCounter> available = targetCounters.FindAll(c => c != null && c.gameObject.activeInHierarchy && c.CanAcceptCustomer);
             if (available.Count == 0) return null;
             return available[Random.Range(0, available.Count)];
         }

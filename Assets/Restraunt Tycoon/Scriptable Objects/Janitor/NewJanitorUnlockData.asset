@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d236a31302294941ac18ee1ac57119a, type: 3}
   m_Name: NewJanitorUnlockData
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTJanitorUnlockData
-  requiredPlayerLevel: 1
-  unlockCost: 500
-  janitorName: Janitor
+  requiredPlayerLevel: 17
+  unlockCost: 300
+  janitorName: Table Cleaner
   description: 
   janitorPrefab: {fileID: 6855225599557159516, guid: dcb43c8a4b181294cb2ae3fa275db639, type: 3}
   moveSpeed: 0.5

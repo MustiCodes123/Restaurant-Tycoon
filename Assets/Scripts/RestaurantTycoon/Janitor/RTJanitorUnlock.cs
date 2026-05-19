@@ -67,7 +67,10 @@ namespace RestaurantTycoon
             ApplyUnlockState();
 
             if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.OnLevelUp += OnPlayerLevelUp;
+            {
+                RTLevelManager.Instance.OnLevelUp     += OnPlayerLevelUp;
+                RTLevelManager.Instance.OnLevelLoaded += OnPlayerLevelUp;
+            }
 
             CheckUnlockAvailability();
         }
@@ -75,7 +78,10 @@ namespace RestaurantTycoon
         private void OnDestroy()
         {
             if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.OnLevelUp -= OnPlayerLevelUp;
+            {
+                RTLevelManager.Instance.OnLevelUp     -= OnPlayerLevelUp;
+                RTLevelManager.Instance.OnLevelLoaded -= OnPlayerLevelUp;
+            }
         }
 
         private void OnPlayerLevelUp(int newLevel) => CheckUnlockAvailability();
@@ -104,11 +110,16 @@ namespace RestaurantTycoon
             if (playerLevel >= unlockData.RequiredPlayerLevel)
             {
                 ShowUnlockSpot();
+                Debug.Log($"[RTJanitorUnlock] '{unlockData.JanitorName}' available at level {playerLevel} (required {unlockData.RequiredPlayerLevel}). Registering mission. DynamicMissionManager: {(DynamicMissionManager.Instance != null ? "found" : "NULL")}");
+                DynamicMissionManager.Instance?.RegisterJanitorUnlockMission(
+                    unlockData.JanitorName,
+                    unlockData.JanitorName);
                 OnUnlockAvailable?.Invoke();
             }
             else
             {
                 HideUnlockSpot();
+                Debug.Log($"[RTJanitorUnlock] '{unlockData.JanitorName}' not yet available. Level {playerLevel} / {unlockData.RequiredPlayerLevel}");
                 OnUnlockUnavailable?.Invoke();
             }
         }
@@ -132,6 +143,7 @@ namespace RestaurantTycoon
                 if (obj != null) ActivateWithPop(obj);
 
             SpawnJanitor();
+            DynamicMissionManager.Instance?.CompleteJanitorUnlockMission(unlockData?.JanitorName);
             OnJanitorUnlocked?.Invoke();
             Debug.Log($"[RTJanitorUnlock] Janitor '{unlockData?.JanitorName}' unlocked!");
         }

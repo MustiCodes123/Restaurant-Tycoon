@@ -56,7 +56,10 @@ namespace RestaurantTycoon
             ApplyUnlockState();
 
             if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.OnLevelUp += OnPlayerLevelUp;
+            {
+                RTLevelManager.Instance.OnLevelUp     += OnPlayerLevelUp;
+                RTLevelManager.Instance.OnLevelLoaded += OnPlayerLevelUp;
+            }
 
             CheckUnlockAvailability();
         }
@@ -64,7 +67,10 @@ namespace RestaurantTycoon
         private void OnDestroy()
         {
             if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.OnLevelUp -= OnPlayerLevelUp;
+            {
+                RTLevelManager.Instance.OnLevelUp     -= OnPlayerLevelUp;
+                RTLevelManager.Instance.OnLevelLoaded -= OnPlayerLevelUp;
+            }
         }
 
         private void OnPlayerLevelUp(int newLevel) => CheckUnlockAvailability();
@@ -93,11 +99,16 @@ namespace RestaurantTycoon
             if (playerLevel >= unlockData.RequiredPlayerLevel)
             {
                 ShowUnlockSpot();
+                Debug.Log($"[RTCookUnlock] '{unlockData.CookName}' available at level {playerLevel} (required {unlockData.RequiredPlayerLevel}). Registering mission. DynamicMissionManager: {(DynamicMissionManager.Instance != null ? "found" : "NULL")}");
+                DynamicMissionManager.Instance?.RegisterCookUnlockMission(
+                    unlockData.CookName,
+                    unlockData.CookName);
                 OnUnlockAvailable?.Invoke();
             }
             else
             {
                 HideUnlockSpot();
+                Debug.Log($"[RTCookUnlock] '{unlockData.CookName}' not yet available. Level {playerLevel} / {unlockData.RequiredPlayerLevel}");
                 OnUnlockUnavailable?.Invoke();
             }
         }
@@ -131,6 +142,7 @@ namespace RestaurantTycoon
                 Debug.LogWarning("[RTCookUnlock] No RTCook reference assigned!");
 
             OnCookUnlocked?.Invoke();
+            DynamicMissionManager.Instance?.CompleteCookUnlockMission(unlockData?.CookName);
             Debug.Log($"[RTCookUnlock] Cook '{unlockData?.CookName}' unlocked!");
         }
 

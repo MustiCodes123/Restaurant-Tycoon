@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 04c83c6ac7f796e458ef6532e7cfa2fa, type: 3}
   m_Name: cake cook unlock
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTCookUnlockData
-  requiredPlayerLevel: 15
-  unlockCost: 150
-  cookName: Cook
+  requiredPlayerLevel: 20
+  unlockCost: 300
+  cookName: Cake Maker
   description: 

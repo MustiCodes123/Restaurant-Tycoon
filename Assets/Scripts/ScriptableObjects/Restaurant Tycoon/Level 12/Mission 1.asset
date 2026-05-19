@@ -9,10 +9,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3452e4ba0e3c7e84a85957454575a4ca, type: 3}
-  m_Name: 3rd table
-  m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTSceneObjectUnlockData
-  requiredPlayerLevel: 12
-  unlockCost: 500
-  unlockName: Unlock
+  m_Script: {fileID: 11500000, guid: 832225ad9da67ee45bb2bd49f3caa8a3, type: 3}
+  m_Name: Mission 1
+  m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTMissionData
+  targetAmount: 100
   description: 

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 
@@ -74,6 +75,10 @@ namespace RestaurantTycoon
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
 
+            // NavMeshAgent drives all movement — root motion must be off or it fights the agent.
+            if (animator != null)
+                animator.applyRootMotion = false;
+
             if (carryPoint == null)
             {
                 GameObject cp = new GameObject("PorterCarryPoint");
@@ -83,13 +88,56 @@ namespace RestaurantTycoon
             }
         }
 
-        private void Start()
+        private void OnEnable()
         {
+            StartCoroutine(InitializeAfterFrame());
+        }
+
+        private void OnDisable()
+        {
+            StopAllCoroutines();
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.ResetPath();
+                agent.velocity = Vector3.zero;
+            }
+            currentState = RTPorterState.Idle;
+            SetWalking(false);
+        }
+
+        private IEnumerator InitializeAfterFrame()
+        {
+            // Poll until the NavMeshAgent is placed on the NavMesh.
+            // It can take multiple frames after SetActive(true) before isOnNavMesh becomes true.
+            float timeout = 3f;
+            float elapsed = 0f;
+            while (agent != null && !agent.isOnNavMesh && elapsed < timeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (agent == null || !agent.isOnNavMesh)
+            {
+                Debug.LogWarning("[RTPorterController] NavMeshAgent not on NavMesh after timeout.");
+                SetWalking(false);
+                currentState = RTPorterState.Idle;
+                yield break;
+            }
+
+            agent.ResetPath();
+            agent.velocity = Vector3.zero;
+            currentState = RTPorterState.Idle;
+            SetWalking(false);
+            searchTimer = 0f;
             GoToNearestIdleSpot();
         }
 
+        private void Start() { /* initialization handled in OnEnable coroutine */ }
+
         private void Update()
         {
+
             switch (currentState)
             {
                 case RTPorterState.Idle:                        HandleIdle();                   break;

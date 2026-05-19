@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3452e4ba0e3c7e84a85957454575a4ca, type: 3}
   m_Name: wheat porter
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTSceneObjectUnlockData
-  requiredPlayerLevel: 12
-  unlockCost: 500
-  unlockName: Unlock
+  requiredPlayerLevel: 25
+  unlockCost: 200
+  unlockName: Wheat Porter
   description: 

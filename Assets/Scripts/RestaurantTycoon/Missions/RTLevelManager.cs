@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using System;
 using System.Collections.Generic;
 using TMPro;
@@ -23,6 +24,8 @@ namespace RestaurantTycoon
 
         [Header("Debug")]
         [SerializeField] private bool showDebugLogs = true;
+        [Tooltip("Assign the debug button here. On click it instantly completes all money missions for the current level.")]
+        [SerializeField] private Button debugCompleteCashMissionButton;
 
         private RTLevelData currentLevelData;
         private int currentLevelIndex;
@@ -37,6 +40,8 @@ namespace RestaurantTycoon
 
         public event Action<int> OnLevelUp;
         public event Action OnMissionProgressUpdated;
+        /// <summary>Fires after the level has fully loaded. Unlock scripts use this to run their first availability check.</summary>
+        public event Action<int> OnLevelLoaded;
 
         private void Awake()
         {
@@ -50,6 +55,8 @@ namespace RestaurantTycoon
 
         private void Start()
         {
+            if (debugCompleteCashMissionButton != null)
+                debugCompleteCashMissionButton.onClick.AddListener(DebugCompleteCashMission);
             if (levelPanelUI != null)
                 levelPanelUI.Initialize();
 
@@ -79,6 +86,7 @@ namespace RestaurantTycoon
                     levelText.text = $"Level {savedLevel}";
 
                 Log($"Loaded Level {savedLevel}: {currentLevelData.levelName}");
+                OnLevelLoaded?.Invoke(CurrentLevel);
             }
             else
             {
@@ -86,10 +94,34 @@ namespace RestaurantTycoon
                 currentLevelData = null;
 
                 if (levelText != null)
-                    levelText.text = "Complete";
+                    levelText.text = "Endless";
 
                 Log("All levels completed or no levels configured!");
             }
+        }
+
+        /// <summary>
+        /// Debug: instantly fills levelEarnings to the highest money mission target,
+        /// completing all cash-based missions on the current level.
+        /// </summary>
+        public void DebugCompleteCashMission()
+        {
+            if (currentLevelData == null) return;
+
+            int maxTarget = 0;
+            foreach (var m in currentLevelData.missions)
+                if (m != null && m.targetAmount > maxTarget)
+                    maxTarget = m.targetAmount;
+
+            if (maxTarget <= levelEarnings)
+            {
+                Log("[Debug] Cash mission already complete.");
+                return;
+            }
+
+            int needed = maxTarget - levelEarnings;
+            Log($"[Debug] Auto-completing cash mission: adding ${needed}");
+            RegisterMoneyEarned(needed);
         }
 
         /// <summary>
