@@ -75,13 +75,14 @@ namespace RestaurantTycoon
                     playerCarryController = player.GetComponentInChildren<RTPlayerCarryController>();
             }
 
-            // Initial stock fill handled by OnEnable which runs after Start on first activation.
+            // Start initial production. OnEnable handles re-activation after unlock.
+            StartRestock();
         }
 
         private void OnEnable()
         {
-            // Restart production whenever this container is activated (initial start or unlock).
-            // Guard against OnEnable firing before Start() has initialised the array.
+            // Restart production whenever this container is re-enabled (e.g. unlocked mid-game).
+            // OnEnable fires BEFORE Start on first activation, so guard until the array exists.
             if (stockedIngredients == null) return;
             StartRestock();
         }
