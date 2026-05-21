@@ -124,7 +124,10 @@ public class SettingsManager : MonoBehaviour
         if (settingsPanel != null)
         {
             settingsPanel.SetActive(true);
-            Time.timeScale = 0f; // Pause the game
+            var popup = settingsPanel.GetComponent<Ricimi.Popup>();
+            if (popup != null)
+                popup.Open();
+            // Time.timeScale = 0f; // Pause the game
         }
     }
     
@@ -132,8 +135,12 @@ public class SettingsManager : MonoBehaviour
     {
         if (settingsPanel != null)
         {
-            settingsPanel.SetActive(false);
-            Time.timeScale = 1f; // Resume the game
+            var popup = settingsPanel.GetComponent<Ricimi.Popup>();
+            if (popup != null)
+                popup.Close();
+            else
+                settingsPanel.SetActive(false);
+            // Time.timeScale = 1f; // Resume the game
         }
     }
     

@@ -41,10 +41,11 @@ namespace RestaurantTycoon
         public void AnimateToSpot(Vector3 fromPosition, Transform spotTransform, float duration, System.Action onComplete = null)
         {
             transform.position = fromPosition;
+            Vector3 originalScale = transform.localScale; // preserve the prefab's set scale
             transform.localScale = Vector3.zero;
 
             Sequence seq = DOTween.Sequence();
-            seq.Append(transform.DOScale(spotTransform.localScale != Vector3.zero ? spotTransform.lossyScale : Vector3.one, duration * 0.3f)
+            seq.Append(transform.DOScale(originalScale, duration * 0.3f)
                 .SetEase(Ease.OutBack));
             seq.Join(transform.DOJump(spotTransform.position, 1f, 1, duration)
                 .SetEase(Ease.OutQuad));
