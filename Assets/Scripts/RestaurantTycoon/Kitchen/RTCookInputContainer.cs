@@ -125,27 +125,29 @@ namespace RestaurantTycoon
 
             while (playerInRange && playerCarryController != null)
             {
-                // Only accept if container has room and player's top item is an ingredient
-                if (IsFull || !playerCarryController.IsTopItemType(CarryableType.Ingredient))
+                // Only accept if container has room
+                if (IsFull)
                 {
                     yield return new WaitForSeconds(0.2f);
                     continue;
                 }
 
-                // Check the top ingredient type before taking it
-                if (acceptedIngredientType != null)
+                // Build a predicate: must be an Ingredient, and match the accepted subtype if one is set.
+                // Searching top-down means a buried matching ingredient is found even if a different
+                // ingredient type (or other item type) is sitting above it.
+                System.Func<IRTCarryable, bool> match = acceptedIngredientType != null
+                    ? (IRTCarryable i) => i.CarryType == CarryableType.Ingredient &&
+                                         i.GameObject.GetComponent<RTIngredient>()?.IngredientType == acceptedIngredientType
+                    : (IRTCarryable i) => i.CarryType == CarryableType.Ingredient;
+
+                if (playerCarryController.PeekTopItem(match) == null)
                 {
-                    IRTCarryable peeked = playerCarryController.PeekTopItem(CarryableType.Ingredient);
-                    RTIngredient peekedIngredient = peeked?.GameObject.GetComponent<RTIngredient>();
-                    if (peekedIngredient == null || peekedIngredient.IngredientType != acceptedIngredientType)
-                    {
-                        yield return new WaitForSeconds(0.2f);
-                        continue;
-                    }
+                    yield return new WaitForSeconds(0.2f);
+                    continue;
                 }
 
-                // Take ingredient from player
-                IRTCarryable item = playerCarryController.TakeTopItem(CarryableType.Ingredient);
+                // Take the first matching ingredient from the player (may not be the absolute top)
+                IRTCarryable item = playerCarryController.TakeTopItem(match);
                 if (item == null)
                 {
                     yield return new WaitForSeconds(0.2f);

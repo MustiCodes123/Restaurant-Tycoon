@@ -129,25 +129,27 @@ namespace RestaurantTycoon
 
             while (playerInRange && playerCarryController != null)
             {
-                if (IsFull || !playerCarryController.IsTopItemType(CarryableType.FinishedItem))
+                if (IsFull)
                 {
                     yield return new WaitForSeconds(0.2f);
                     continue;
                 }
 
-                // If this counter has a type filter, peek before taking
-                if (acceptedItemType != null)
+                // Build a predicate: must be a FinishedItem, and match the accepted subtype if one is set.
+                // Searching top-down means a buried matching item is found even if a different
+                // item type (or ingredient / garbage) is sitting above it.
+                System.Func<IRTCarryable, bool> match = acceptedItemType != null
+                    ? (IRTCarryable i) => i.CarryType == CarryableType.FinishedItem &&
+                                         i.GameObject.GetComponent<RTFinishedItem>()?.ItemType == acceptedItemType
+                    : (IRTCarryable i) => i.CarryType == CarryableType.FinishedItem;
+
+                if (playerCarryController.PeekTopItem(match) == null)
                 {
-                    IRTCarryable peeked = playerCarryController.PeekTopItem(CarryableType.FinishedItem);
-                    RTFinishedItem peekedItem = peeked?.GameObject.GetComponent<RTFinishedItem>();
-                    if (peekedItem == null || peekedItem.ItemType != acceptedItemType)
-                    {
-                        yield return new WaitForSeconds(0.2f);
-                        continue;
-                    }
+                    yield return new WaitForSeconds(0.2f);
+                    continue;
                 }
 
-                IRTCarryable item = playerCarryController.TakeTopItem(CarryableType.FinishedItem);
+                IRTCarryable item = playerCarryController.TakeTopItem(match);
                 if (item == null)
                 {
                     yield return new WaitForSeconds(0.2f);

@@ -170,43 +170,99 @@ namespace RestaurantTycoon
         }
 
         /// <summary>
-        /// Check if the top item matches the requested type.
+        /// Check if any item in the stack matches the requested type.
+        /// Searches top-down so the nearest matching item is found first.
         /// Used by containers to know if the player can drop here.
         /// </summary>
         public bool IsTopItemType(CarryableType type)
         {
-            return carriedItems.Count > 0 && carriedItems[carriedItems.Count - 1].CarryType == type;
+            for (int i = carriedItems.Count - 1; i >= 0; i--)
+            {
+                if (carriedItems[i].CarryType == type) return true;
+            }
+            return false;
         }
 
         /// <summary>
-        /// Peek at the top item without removing it. Returns null if stack is empty or type doesn't match.
+        /// Peek at the topmost item of the given type without removing it.
+        /// Searches top-down so items above a different type don't block access.
+        /// Returns null if no item of that type exists in the stack.
         /// </summary>
         public IRTCarryable PeekTopItem(CarryableType type)
         {
-            if (carriedItems.Count == 0) return null;
-            IRTCarryable topItem = carriedItems[carriedItems.Count - 1];
-            return topItem.CarryType == type ? topItem : null;
+            for (int i = carriedItems.Count - 1; i >= 0; i--)
+            {
+                if (carriedItems[i].CarryType == type) return carriedItems[i];
+            }
+            return null;
         }
 
         /// <summary>
-        /// Take the top item off the stack if it matches the requested type.
-        /// Returns null if stack is empty or top item doesn't match.
+        /// Take the topmost item of the given type from the stack, searching top-down.
+        /// Items of a different type sitting above it do not block the drop.
+        /// After removal, the remaining stack is reorganized to close any visual gap.
+        /// Returns null if no item of that type exists.
         /// </summary>
         public IRTCarryable TakeTopItem(CarryableType type)
         {
             if (carriedItems.Count == 0) return null;
 
-            int topIndex = carriedItems.Count - 1;
-            IRTCarryable topItem = carriedItems[topIndex];
+            for (int i = carriedItems.Count - 1; i >= 0; i--)
+            {
+                if (carriedItems[i].CarryType != type) continue;
 
-            if (topItem.CarryType != type) return null;
+                IRTCarryable item = carriedItems[i];
+                carriedItems.RemoveAt(i);
+                animatingItems.Remove(item.GameObject.transform);
+                item.OnDropped();
 
-            carriedItems.RemoveAt(topIndex);
-            animatingItems.Remove(topItem.GameObject.transform);
-            topItem.OnDropped();
+                // If removal left a gap in the middle or bottom, shift remaining items down.
+                if (i < carriedItems.Count)
+                    ReorganizeStack();
 
-            Debug.Log($"[RTPlayerCarryController] Dropped {type} from top. Stack: {carriedItems.Count}/{maxCarryCount}");
-            return topItem;
+                Debug.Log($"[RTPlayerCarryController] Dropped {type} from index {i}. Stack: {carriedItems.Count}/{maxCarryCount}");
+                return item;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Peek at the first item (top-down) that satisfies the predicate.
+        /// Returns null if no matching item exists.
+        /// </summary>
+        public IRTCarryable PeekTopItem(System.Func<IRTCarryable, bool> predicate)
+        {
+            for (int i = carriedItems.Count - 1; i >= 0; i--)
+            {
+                if (predicate(carriedItems[i])) return carriedItems[i];
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Take the first item (top-down) that satisfies the predicate.
+        /// After removal, the remaining stack is reorganized to close any visual gap.
+        /// Returns null if no matching item exists.
+        /// </summary>
+        public IRTCarryable TakeTopItem(System.Func<IRTCarryable, bool> predicate)
+        {
+            for (int i = carriedItems.Count - 1; i >= 0; i--)
+            {
+                if (!predicate(carriedItems[i])) continue;
+
+                IRTCarryable item = carriedItems[i];
+                carriedItems.RemoveAt(i);
+                animatingItems.Remove(item.GameObject.transform);
+                item.OnDropped();
+
+                if (i < carriedItems.Count)
+                    ReorganizeStack();
+
+                Debug.Log($"[RTPlayerCarryController] Dropped item via predicate from index {i}. Stack: {carriedItems.Count}/{maxCarryCount}");
+                return item;
+            }
+            return null;
         }
 
         /// <summary>
