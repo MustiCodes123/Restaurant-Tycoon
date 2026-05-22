@@ -79,6 +79,25 @@ namespace RestaurantTycoon
             StartRestock();
         }
 
+        private void OnDisable()
+        {
+            // Unity kills coroutines on disable but leaves the variables non-null and isRestocking true.
+            // Reset everything so OnEnable can start fresh (e.g. after being unlocked mid-game).
+            if (restockCoroutine != null)
+            {
+                StopCoroutine(restockCoroutine);
+                restockCoroutine = null;
+            }
+            isRestocking = false;
+
+            if (pickupCoroutine != null)
+            {
+                StopCoroutine(pickupCoroutine);
+                pickupCoroutine = null;
+            }
+            playerInRange = false;
+        }
+
         private void OnEnable()
         {
             // Restart production whenever this container is re-enabled (e.g. unlocked mid-game).
@@ -121,6 +140,11 @@ namespace RestaurantTycoon
 
             isRestocking = false;
             restockCoroutine = null;
+
+            // If any slot was taken mid-pass (e.g. porter or player picked up while the loop
+            // was running and yielding), trigger another pass so the container catches up.
+            if (!IsFull)
+                StartRestock();
         }
 
         private void SpawnIngredientAtSlot(int slotIndex)
@@ -128,6 +152,12 @@ namespace RestaurantTycoon
             if (ingredientPrefab == null || slotIndex < 0 || slotIndex >= stockSlots.Count) return;
 
             Transform slot = stockSlots[slotIndex];
+            if (slot == null)
+            {
+                Debug.LogError($"[RTIngredientContainer] stockSlots[{slotIndex}] is not assigned in the Inspector on '{gameObject.name}'. Skipping slot.");
+                return;
+            }
+
             Vector3 fromPos = sourcePoint != null ? sourcePoint.position : transform.position + Vector3.up * 2f;
 
             GameObject obj = Instantiate(ingredientPrefab, fromPos, Quaternion.identity);

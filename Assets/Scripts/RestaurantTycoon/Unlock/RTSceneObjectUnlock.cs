@@ -82,9 +82,10 @@ namespace RestaurantTycoon
 
         private System.Collections.IEnumerator DelayedHideLockedObjects()
         {
-            // Wait 2 frames so child components (e.g. NavMeshAgent) can fully initialise.
-            yield return null;
-            yield return null;
+            // Wait long enough for NavMeshAgents (and other deferred systems) to fully register.
+            // A fixed frame count was too few at lower frame rates or during busy scene loads;
+            // a time-based wait is more reliable.
+            yield return new WaitForSeconds(0.2f);
 
             if (!isUnlocked)
             {
@@ -210,10 +211,15 @@ namespace RestaurantTycoon
         {
             if (obj == null) return;
 
-            Vector3 originalScale = obj.transform.localScale;
             // Enable first so NavMeshAgent (and other components) re-register
             // from the correct world position before any scale manipulation.
             obj.SetActive(true);
+
+            // Kill any leftover tweens from a previous enable/disable cycle so that
+            // localScale reflects the intended resting value before we read it.
+            DOTween.Kill(obj.transform, true);
+
+            Vector3 originalScale = obj.transform.localScale;
             obj.transform.localScale = Vector3.zero;
 
             obj.transform.DOScale(originalScale, popDuration)

@@ -107,19 +107,39 @@ namespace RestaurantTycoon
 
         private IEnumerator InitializeAfterFrame()
         {
-            // Poll until the NavMeshAgent is placed on the NavMesh.
-            // It can take multiple frames after SetActive(true) before isOnNavMesh becomes true.
-            float timeout = 3f;
-            float elapsed = 0f;
-            while (agent != null && !agent.isOnNavMesh && elapsed < timeout)
+            // Wait one frame so Unity's activation cycle completes.
+            yield return null;
+
+            // Safety: re-enable the agent if a previous coroutine was interrupted
+            // mid-toggle and left it disabled.
+            if (agent != null && !agent.enabled)
+                agent.enabled = true;
+
+            // If the agent is not yet on the NavMesh, cycle its enabled state to force
+            // re-registration. agent.isOnNavMesh does not reliably become true on
+            // SetActive(true) alone in all Unity versions; the toggle is the safest fix.
+            if (agent != null && !agent.isOnNavMesh)
             {
-                elapsed += Time.deltaTime;
+                agent.enabled = false;
                 yield return null;
+                agent.enabled = true;
+                yield return null;
+            }
+
+            // Final fallback: warp to the nearest valid NavMesh position.
+            if (agent != null && !agent.isOnNavMesh)
+            {
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(transform.position, out hit, 10f, NavMesh.AllAreas))
+                {
+                    agent.Warp(hit.position);
+                    yield return null;
+                }
             }
 
             if (agent == null || !agent.isOnNavMesh)
             {
-                Debug.LogWarning("[RTPorterController] NavMeshAgent not on NavMesh after timeout.");
+                Debug.LogWarning($"[RTPorterController] NavMeshAgent not on NavMesh after initialization — {gameObject.name} will stay idle.");
                 SetWalking(false);
                 currentState = RTPorterState.Idle;
                 yield break;
@@ -155,6 +175,19 @@ namespace RestaurantTycoon
 
         private void HandleIdle()
         {
+            // If holding an ingredient from an aborted delivery, re-attempt as soon
+            // as the input container has space — don't collect a second ingredient.
+            if (heldIngredient != null)
+            {
+                if (inputContainer != null && !inputContainer.IsFull)
+                {
+                    MoveTo(inputContainer.transform.position);
+                    currentState = RTPorterState.MovingToInputContainer;
+                    SetWalking(true);
+                }
+                return;
+            }
+
             searchTimer += Time.deltaTime;
             if (searchTimer < searchInterval) return;
             searchTimer = 0f;
@@ -234,6 +267,16 @@ namespace RestaurantTycoon
 
         private void HandleMovingToIdle()
         {
+            // Re-deliver a held ingredient as soon as the input has space,
+            // rather than finishing the idle walk first.
+            if (heldIngredient != null && inputContainer != null && !inputContainer.IsFull)
+            {
+                MoveTo(inputContainer.transform.position);
+                currentState = RTPorterState.MovingToInputContainer;
+                SetWalking(true);
+                return;
+            }
+
             // Interrupt early if work is available
             searchTimer += Time.deltaTime;
             if (searchTimer >= searchInterval)
@@ -258,10 +301,15 @@ namespace RestaurantTycoon
 
         #region Actions
 
-        private bool ShouldFetchIngredient() =>
-            ingredientContainer != null && inputContainer != null &&
-            ingredientContainer.StockedCount > 0 &&
-            !inputContainer.IsFull;
+        private bool ShouldFetchIngredient()
+        {
+            bool result = ingredientContainer != null && inputContainer != null &&
+                          ingredientContainer.StockedCount > 0 &&
+                          !inputContainer.IsFull;
+            // Uncomment to spam-log every check (very verbose — enable only when debugging):
+            // Debug.Log($"[RTPorterController] ShouldFetch={result}  ic={ingredientContainer?.name ?? "NULL"}  stock={ingredientContainer?.StockedCount}  input={inputContainer?.name ?? "NULL"}  full={inputContainer?.IsFull}");
+            return result;
+        }
 
         private void StartMovingToSource()
         {
