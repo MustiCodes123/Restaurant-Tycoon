@@ -130,6 +130,15 @@ namespace RestaurantTycoon
             Debug.Log($"[RTCashier] Customer served. Money: ${moneyAmount}");
         }
 
+        /// <summary>
+        /// Lets an NPC cashier character register its transform so the money flow
+        /// effect targets it instead of the player.
+        /// </summary>
+        public void SetServiceTransform(Transform serviceTransform)
+        {
+            playerTransform = serviceTransform;
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (other.GetComponent<RTPlayerController>() == null) return;
