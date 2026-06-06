@@ -138,8 +138,13 @@ public class MoneyDrop : MonoBehaviour
             CurrencyManager.Instance.AddMoney(moneyAmount);
         }
         
-        // Register with level manager (for mission tracking)
-        if (LevelManager.Instance != null)
+        // Register with RT level manager first (restaurant tycoon scenes)
+        if (RestaurantTycoon.RTLevelManager.Instance != null)
+        {
+            RestaurantTycoon.RTLevelManager.Instance.RegisterMoneyEarned(moneyAmount);
+        }
+        // Fallback to generic LevelManager (other scenes)
+        else if (LevelManager.Instance != null)
         {
             LevelManager.Instance.RegisterMoneyEarned(moneyAmount);
         }

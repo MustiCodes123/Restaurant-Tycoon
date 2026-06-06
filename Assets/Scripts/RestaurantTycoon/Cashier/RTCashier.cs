@@ -19,8 +19,13 @@ namespace RestaurantTycoon
         [Header("Player Detection")]
         // No layer mask needed — player detected via RTPlayerController component
 
-        [Header("Money Effect")]
-        [SerializeField] private MoneyFlowEffect moneyFlowEffect;
+        [Header("Money Drop")]
+        [Tooltip("Prefab with MoneyDrop script — spawned on the ground for the player to walk over and collect.")]
+        [SerializeField] private GameObject moneyDropPrefab;
+        [Tooltip("Vertical offset applied when spawning the money prefab so it sits above the ground.")]
+        [SerializeField] private float moneyDropYOffset = 0.5f;
+        [Tooltip("Horizontal offset applied when spawning the money prefab (along the world X axis).")]
+        [SerializeField] private float moneyDropXOffset = 0f;
 
         private List<RTCustomer> queue = new List<RTCustomer>();
         private bool playerInRange;
@@ -111,14 +116,28 @@ namespace RestaurantTycoon
             RTCustomer front = queue[0];
             int moneyAmount = front.MoneyPerCustomer;
 
-            if (moneyFlowEffect != null && playerTransform != null)
-                moneyFlowEffect.SpawnMoneyToPlayer(front.transform.position, playerTransform, moneyAmount);
-
-            // Register money with the RT level manager (level-scoped + global wallet)
-            if (RTLevelManager.Instance != null)
-                RTLevelManager.Instance.RegisterMoneyEarned(moneyAmount);
-            else if (CurrencyManager.Instance != null)
-                CurrencyManager.Instance.AddMoney(moneyAmount);
+            // Spawn the money drop prefab on the ground at the customer's feet.
+            // MoneyDrop.Initialize sets the amount; MoneyDrop itself handles
+            // proximity pickup, animation, and money registration on collection.
+            if (moneyDropPrefab != null)
+            {
+                Vector3 spawnPos = front.transform.position + new Vector3(moneyDropXOffset, moneyDropYOffset, 0f);
+                GameObject drop = Instantiate(moneyDropPrefab, spawnPos, Quaternion.identity);
+                MoneyDrop moneyDrop = drop.GetComponent<MoneyDrop>();
+                if (moneyDrop != null)
+                    moneyDrop.Initialize(moneyAmount);
+                else
+                    Debug.LogError("[RTCashier] moneyDropPrefab is missing a MoneyDrop component!");
+            }
+            else
+            {
+                Debug.LogError("[RTCashier] moneyDropPrefab is not assigned in the Inspector! Please assign the money drop prefab.");
+                // Fallback: register money directly so the game is not broken
+                if (RTLevelManager.Instance != null)
+                    RTLevelManager.Instance.RegisterMoneyEarned(moneyAmount);
+                else if (CurrencyManager.Instance != null)
+                    CurrencyManager.Instance.AddMoney(moneyAmount);
+            }
 
             front.OnServedAtCashier();
 
