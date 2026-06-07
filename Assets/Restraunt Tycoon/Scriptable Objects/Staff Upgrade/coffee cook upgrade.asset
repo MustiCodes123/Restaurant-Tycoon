@@ -15,14 +15,14 @@ MonoBehaviour:
   upgradeId: Coffee Maker
   upgradeLevels:
   - upgradeName: Level 1
-    requiredPlayerLevel: 2
+    requiredPlayerLevel: 7
     cost: 100
     newDuration: 3.5
   - upgradeName: Level 2
-    requiredPlayerLevel: 3
+    requiredPlayerLevel: 17
     cost: 200
     newDuration: 2.5
   - upgradeName: Level 3
-    requiredPlayerLevel: 4
+    requiredPlayerLevel: 27
     cost: 250
     newDuration: 1

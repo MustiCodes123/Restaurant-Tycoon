@@ -12,14 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65ab5bb4796de974cab912bdc48689a3, type: 3}
   m_Name: Omelette Cook Upgrade
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTStaffUpgradeData
-  upgradeId: 0
+  upgradeId: Omelette Maker
   upgradeLevels:
   - upgradeName: Level 1
+    requiredPlayerLevel: 16
     cost: 100
     newDuration: 3.5
   - upgradeName: Level 2
+    requiredPlayerLevel: 23
     cost: 200
     newDuration: 2.5
   - upgradeName: Level 3
+    requiredPlayerLevel: 25
     cost: 250
     newDuration: 1
