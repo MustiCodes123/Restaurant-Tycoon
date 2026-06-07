@@ -42,8 +42,18 @@ namespace RestaurantTycoon
             if (radialProgressUI == null)
                 radialProgressUI = GetComponentInChildren<RadialProgressUI>();
 
-            if (radialProgressUI != null)
-                radialProgressUI.SetFillDuration(serviceDuration);
+            if (cashier == null)
+                cashier = GetComponentInParent<RTCashier>();
+        }
+
+        private void OnEnable()
+        {
+            // Auto-find references in case Start hasn't run yet (e.g. first enable)
+            if (animator == null)
+                animator = GetComponentInChildren<Animator>();
+
+            if (radialProgressUI == null)
+                radialProgressUI = GetComponentInChildren<RadialProgressUI>();
 
             if (cashier == null)
                 cashier = GetComponentInParent<RTCashier>();
@@ -54,15 +64,34 @@ namespace RestaurantTycoon
                 return;
             }
 
+            if (radialProgressUI != null)
+                radialProgressUI.SetFillDuration(serviceDuration);
+
             // Register this character's transform so money flows to us
             cashier.SetServiceTransform(transform);
 
-            // Subscribe to know when a customer joins so we can wake up immediately
             cashier.OnCustomerServed += OnCustomerServed;
 
             serviceLoopCoroutine = StartCoroutine(ServiceLoop());
 
-            Debug.Log($"[RTCashierCharacter] Started. Cashier: {cashier.name}");
+            Debug.Log($"[RTCashierCharacter] Enabled. Cashier: {cashier.name}");
+        }
+
+        private void OnDisable()
+        {
+            if (cashier != null)
+                cashier.OnCustomerServed -= OnCustomerServed;
+
+            if (serviceLoopCoroutine != null)
+            {
+                StopCoroutine(serviceLoopCoroutine);
+                serviceLoopCoroutine = null;
+            }
+
+            isServicing = false;
+
+            if (radialProgressUI != null)
+                radialProgressUI.StopProgress();
         }
 
         private void OnDestroy()
