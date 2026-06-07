@@ -9,7 +9,7 @@ namespace RestaurantTycoon
     /// watches for a ready customer, plays a serving animation with RadialProgressUI,
     /// then completes the transaction and loops.
     /// </summary>
-    public class RTCashierCharacter : MonoBehaviour
+    public class RTCashierCharacter : MonoBehaviour, IUpgradeableStaff
     {
         [Header("References")]
         [Tooltip("The RTCashier counter that manages the customer queue.")]
@@ -33,6 +33,15 @@ namespace RestaurantTycoon
         private Coroutine serviceLoopCoroutine;
 
         public bool IsServicing => isServicing;
+
+        /// <summary>Reduces service time. Called by RTStaffUpgrade when an upgrade is purchased.</summary>
+        public void SetUpgradedDuration(float newDuration)
+        {
+            serviceDuration = Mathf.Max(0.1f, newDuration);
+            if (radialProgressUI != null)
+                radialProgressUI.SetFillDuration(serviceDuration);
+            Debug.Log($"[RTCashierCharacter] Service duration upgraded to {serviceDuration}s");
+        }
 
         private void Start()
         {

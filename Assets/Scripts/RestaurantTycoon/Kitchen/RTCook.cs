@@ -9,7 +9,7 @@ namespace RestaurantTycoon
     /// takes one, plays cooking animation with RadialProgressUI, then produces
     /// a finished item that bounces to the output container.
     /// </summary>
-    public class RTCook : MonoBehaviour
+    public class RTCook : MonoBehaviour, IUpgradeableStaff
     {
         [Header("References")]
         [SerializeField] private RTCookInputContainer inputContainer;
@@ -45,6 +45,15 @@ namespace RestaurantTycoon
         private Coroutine cookLoopCoroutine;
 
         public bool IsCooking => isCooking;
+
+        /// <summary>Reduces the cook time. Called by RTStaffUpgrade when an upgrade is purchased.</summary>
+        public void SetUpgradedDuration(float newDuration)
+        {
+            cookDuration = Mathf.Max(0.1f, newDuration);
+            if (radialProgressUI != null)
+                radialProgressUI.SetFillDuration(cookDuration);
+            Debug.Log($"[RTCook] Cook duration upgraded to {cookDuration}s");
+        }
 
         private void Start()
         {

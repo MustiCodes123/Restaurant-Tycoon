@@ -21,7 +21,7 @@ namespace RestaurantTycoon
     /// and delivers it to an RTCookInputContainer.
     /// Idles at the nearest idle spot when the source container is empty or the input is full.
     /// </summary>
-    public class RTPorterController : MonoBehaviour
+    public class RTPorterController : MonoBehaviour, IUpgradeableStaff
     {
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 3.5f;
@@ -60,6 +60,15 @@ namespace RestaurantTycoon
 
         public RTPorterState State => currentState;
         public bool IsCarryingIngredient => heldIngredient != null;
+
+        /// <summary>Reduces collect and deliver delays. Called by RTStaffUpgrade when an upgrade is purchased.</summary>
+        public void SetUpgradedDuration(float newDuration)
+        {
+            float clamped = Mathf.Max(0.1f, newDuration);
+            collectDelay = clamped;
+            deliverDelay = clamped;
+            Debug.Log($"[RTPorterController] Porter delays upgraded to {clamped}s");
+        }
 
         #region Unity
 
