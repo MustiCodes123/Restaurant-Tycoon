@@ -7,82 +7,111 @@ namespace RestaurantTycoon
 {
     /// <summary>
     /// Physical interaction spot for staff upgrades.
-    /// Player walks in, stands still while the radial fills, upgrade is purchased.
-    /// Exposes Show()/Hide() so RTStaffUpgrade can control visibility;
-    /// uses OnEnable/OnDisable so RTSceneObjectUnlock toggling works correctly.
+    /// Player walks in → money drains at paymentRate/s with a money flow animation
+    /// → image fill tracks progress → upgrade completes when fully paid.
+    /// Mirrors RTCookUnlockSpot's payment pattern exactly.
     /// </summary>
     public class RTUpgradeSpot : MonoBehaviour
     {
-        [Header("Player Detection")]
-        // Detects RTPlayerController — no layer mask needed.
+        [Header("Detection")]
+        [SerializeField] private LayerMask playerLayer;
 
         [Header("UI")]
-        [SerializeField] private Canvas worldCanvas;
-        [SerializeField] private GameObject uiRoot;
+        [SerializeField] private Canvas canvas;
         [SerializeField] private TextMeshProUGUI costText;
         [SerializeField] private TextMeshProUGUI levelText;
         [SerializeField] private TextMeshProUGUI durationText;
+        [SerializeField] private Image progressFillImage;
 
-        [Header("Radial Progress")]
-        [Tooltip("RadialProgressUI on this spot (or a child).")]
-        [SerializeField] private RadialProgressUI radialProgressUI;
-        [Tooltip("Seconds the player must stand still to purchase.")]
-        [SerializeField] private float interactDuration = 2f;
+        [Header("Payment")]
+        [Tooltip("Money deducted per second while the player stands here.")]
+        [SerializeField] private float paymentRate = 50f;
+        [SerializeField] private float paymentInterval = 0.1f;
+
+        [Header("Money Flow Effect")]
+        [SerializeField] private MoneyFlowEffect moneyFlowEffect;
+        [SerializeField] private float moneyFlowInterval = 0.15f;
+
+        [Header("Show / Hide Animation")]
+        [SerializeField] private float showDuration = 0.25f;
+        [SerializeField] private float hideDuration = 0.2f;
+        [SerializeField] private Ease showEase = Ease.OutBack;
+        [SerializeField] private Ease hideEase = Ease.InBack;
 
         [Header("Pulse Animation")]
-        [SerializeField] private float pulseMin = 0.95f;
-        [SerializeField] private float pulseMax = 1.05f;
-        [SerializeField] private float pulseDuration = 0.7f;
+        [SerializeField] private float pulseScale = 1.1f;
+        [SerializeField] private float pulseDuration = 0.5f;
+        [SerializeField] private Ease pulseEase = Ease.InOutSine;
 
         // ── Runtime ───────────────────────────────────────────────────────────
         private RTStaffUpgrade owner;
-        private bool playerInRange;
-        private bool isPurchasing;
-        private Coroutine purchaseCoroutine;
+        private int totalCost;
+        private int currentPayment;
+        private bool isPlayerInRange;
+        private bool isPaymentActive;
+        private float paymentTimer;
+        private float lastMoneyFlowTime;
+        private Transform playerTransform;
         private Tween pulseTween;
+        private Tween showHideTween;
+        private Vector3 originalCanvasScale;
 
         // ── Unity ─────────────────────────────────────────────────────────────
 
         private void Awake()
         {
-            if (radialProgressUI == null)
-                radialProgressUI = GetComponentInChildren<RadialProgressUI>();
+            if (canvas != null)
+            {
+                originalCanvasScale = canvas.transform.localScale;
+                canvas.transform.localScale = Vector3.zero;
+                canvas.gameObject.SetActive(false);
+            }
 
-            HideUI();
+            if (progressFillImage != null)
+                progressFillImage.fillAmount = 0f;
+
             gameObject.SetActive(false);
         }
 
-        private void OnEnable()
+        private void Update()
         {
-            playerInRange = false;
-            isPurchasing = false;
-        }
+            if (!isPlayerInRange || !isPaymentActive || owner == null) return;
 
-        private void OnDisable()
-        {
-            CancelPurchase();
-            StopPulse();
+            paymentTimer += Time.deltaTime;
+            if (paymentTimer >= paymentInterval)
+            {
+                paymentTimer = 0f;
+                ProcessPayment();
+            }
         }
 
         private void OnDestroy()
         {
             pulseTween?.Kill();
+            showHideTween?.Kill();
         }
+
+        // ── Trigger ───────────────────────────────────────────────────────────
 
         private void OnTriggerEnter(Collider other)
         {
-            if (other.GetComponent<RTPlayerController>() == null) return;
-            playerInRange = true;
+            if (((1 << other.gameObject.layer) & playerLayer) == 0) return;
 
-            if (owner != null && owner.CanUpgrade)
-                BeginPurchase();
+            isPlayerInRange = true;
+            playerTransform = other.transform;
+            paymentTimer = 0f;
+            isPaymentActive = true;
+            StopPulse();
         }
 
         private void OnTriggerExit(Collider other)
         {
-            if (other.GetComponent<RTPlayerController>() == null) return;
-            playerInRange = false;
-            CancelPurchase();
+            if (((1 << other.gameObject.layer) & playerLayer) == 0) return;
+
+            isPlayerInRange = false;
+            playerTransform = null;
+            isPaymentActive = false;
+            StartPulse();
         }
 
         // ── Public API ────────────────────────────────────────────────────────
@@ -90,140 +119,147 @@ namespace RestaurantTycoon
         /// <summary>Activates and configures the spot for the given upgrade state.</summary>
         public void Show(RTStaffUpgrade upgrade)
         {
-            owner = upgrade;
-            gameObject.SetActive(true);
-            RefreshUI();
-            StartPulse();
+            if (upgrade == null) return;
 
-            // If player is already standing in the trigger, start immediately.
-            if (playerInRange && owner.CanUpgrade)
-                BeginPurchase();
+            owner = upgrade;
+            totalCost = upgrade.NextLevel != null ? upgrade.NextLevel.cost : 0;
+            currentPayment = 0;
+            isPaymentActive = false;
+
+            RefreshUI();
+
+            gameObject.SetActive(true);
+
+            if (canvas != null)
+            {
+                canvas.gameObject.SetActive(true);
+                showHideTween?.Kill();
+                showHideTween = canvas.transform
+                    .DOScale(originalCanvasScale, showDuration)
+                    .SetEase(showEase);
+            }
+
+            StartPulse();
         }
 
         /// <summary>Hides and deactivates the spot.</summary>
         public void Hide()
         {
-            CancelPurchase();
             StopPulse();
-            gameObject.SetActive(false);
+            isPaymentActive = false;
+            isPlayerInRange = false;
+            playerTransform = null;
+            currentPayment = 0;
+            paymentTimer = 0f;
+
+            if (canvas != null && canvas.gameObject.activeSelf)
+            {
+                showHideTween?.Kill();
+                showHideTween = canvas.transform
+                    .DOScale(Vector3.zero, hideDuration)
+                    .SetEase(hideEase)
+                    .OnComplete(() =>
+                    {
+                        canvas.gameObject.SetActive(false);
+                        gameObject.SetActive(false);
+                    });
+            }
+            else
+            {
+                gameObject.SetActive(false);
+            }
+
             owner = null;
         }
 
-        /// <summary>Call after an upgrade completes so UI refreshes or spot hides.</summary>
-        public void OnUpgradeCompleted()
+        // ── Payment ───────────────────────────────────────────────────────────
+
+        private void ProcessPayment()
         {
-            if (owner == null || !owner.CanUpgrade)
+            if (owner == null || CurrencyManager.Instance == null) return;
+
+            int remaining = totalCost - currentPayment;
+            if (remaining <= 0) { CompletePayment(); return; }
+
+            int amount = Mathf.Min(Mathf.CeilToInt(paymentRate * paymentInterval), remaining);
+            amount = Mathf.Min(amount, CurrencyManager.Instance.CurrentMoney);
+            if (amount <= 0) return;
+
+            if (CurrencyManager.Instance.SpendMoney(amount))
             {
-                Hide();
-                return;
+                currentPayment += amount;
+                RefreshUI();
+
+                if (moneyFlowEffect != null && playerTransform != null &&
+                    Time.time - lastMoneyFlowTime >= moneyFlowInterval)
+                {
+                    lastMoneyFlowTime = Time.time;
+                    moneyFlowEffect.SpawnMoneyToTarget(
+                        playerTransform.position,
+                        canvas != null ? canvas.transform.position : transform.position,
+                        amount);
+                }
+
+                if (currentPayment >= totalCost)
+                    CompletePayment();
             }
-
-            RefreshUI();
-
-            // If player is still in range, start next upgrade immediately.
-            if (playerInRange)
-                BeginPurchase();
         }
 
-        // ── Private ───────────────────────────────────────────────────────────
-
-        private void BeginPurchase()
+        private void CompletePayment()
         {
-            if (isPurchasing || owner == null || !owner.CanUpgrade) return;
-
-            isPurchasing = true;
+            isPaymentActive = false;
             StopPulse();
 
-            if (radialProgressUI != null)
+            if (canvas != null)
             {
-                radialProgressUI.SetFillDuration(interactDuration);
-                radialProgressUI.StartProgress();
+                showHideTween?.Kill();
+                canvas.transform.DOScale(Vector3.zero, hideDuration).SetEase(hideEase);
             }
-
-            purchaseCoroutine = StartCoroutine(PurchaseRoutine());
-        }
-
-        private System.Collections.IEnumerator PurchaseRoutine()
-        {
-            yield return new WaitForSeconds(interactDuration);
-
-            if (!isPurchasing) yield break; // Cancelled while waiting.
-
-            if (radialProgressUI != null)
-                radialProgressUI.StopProgress();
-
-            isPurchasing = false;
-            purchaseCoroutine = null;
 
             owner?.CompleteUpgrade();
-            OnUpgradeCompleted();
         }
 
-        private void CancelPurchase()
-        {
-            if (!isPurchasing) return;
-
-            isPurchasing = false;
-
-            if (purchaseCoroutine != null)
-            {
-                StopCoroutine(purchaseCoroutine);
-                purchaseCoroutine = null;
-            }
-
-            if (radialProgressUI != null)
-                radialProgressUI.StopProgress();
-
-            StartPulse();
-        }
+        // ── UI ────────────────────────────────────────────────────────────────
 
         private void RefreshUI()
         {
             if (owner == null) return;
 
             var nextLevel = owner.NextLevel;
-            if (nextLevel == null) { HideUI(); return; }
+            if (nextLevel == null) return;
 
-            ShowUI();
+            int remaining = Mathf.Max(0, totalCost - currentPayment);
 
             if (costText != null)
-                costText.text = $"${nextLevel.cost}";
+                costText.text = $"${remaining}";
 
             if (levelText != null)
                 levelText.text = $"Lvl {owner.CurrentLevel + 1}";
 
             if (durationText != null)
                 durationText.text = $"{nextLevel.newDuration:0.0}s";
+
+            if (progressFillImage != null)
+                progressFillImage.fillAmount = totalCost > 0 ? (float)currentPayment / totalCost : 0f;
         }
 
-        private void ShowUI()
-        {
-            if (uiRoot != null) uiRoot.SetActive(true);
-            if (worldCanvas != null) worldCanvas.enabled = true;
-        }
-
-        private void HideUI()
-        {
-            if (uiRoot != null) uiRoot.SetActive(false);
-            if (worldCanvas != null) worldCanvas.enabled = false;
-        }
+        // ── Animation ─────────────────────────────────────────────────────────
 
         private void StartPulse()
         {
-            if (uiRoot == null) return;
+            if (canvas == null) return;
             pulseTween?.Kill();
-            uiRoot.transform.localScale = Vector3.one;
-            pulseTween = uiRoot.transform
-                .DOScale(Vector3.one * pulseMax, pulseDuration)
-                .SetEase(Ease.InOutSine)
+            pulseTween = canvas.transform
+                .DOScale(originalCanvasScale * pulseScale, pulseDuration)
+                .SetEase(pulseEase)
                 .SetLoops(-1, LoopType.Yoyo);
         }
 
         private void StopPulse()
         {
             pulseTween?.Kill();
-            if (uiRoot != null)
-                uiRoot.transform.localScale = Vector3.one;
+            if (canvas != null)
+                canvas.transform.localScale = originalCanvasScale;
         }
 
         private void OnDrawGizmos()

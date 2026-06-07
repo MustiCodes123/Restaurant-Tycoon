@@ -31,6 +31,7 @@ namespace RestaurantTycoon
         // ── Runtime ───────────────────────────────────────────────────────────
         private int currentLevel = 0;
         private IUpgradeableStaff staffInterface;
+        private bool hasStarted = false; // guards against OnEnable running before Start
 
         private string SaveKey => $"RTStaffUpgrade_{(upgradeData != null ? upgradeData.UpgradeId : gameObject.name)}";
 
@@ -39,6 +40,16 @@ namespace RestaurantTycoon
         public RTStaffUpgradeData.UpgradeLevel NextLevel => upgradeData?.GetLevel(currentLevel);
 
         // ── Unity ─────────────────────────────────────────────────────────────
+
+        private void Start()
+        {
+            hasStarted = true;
+            // RTLevelManager.Instance is guaranteed to exist by the time Start() runs
+            // (all Awake() calls across the scene are complete). Subscribe here so we
+            // never miss the initial OnLevelLoaded event.
+            SubscribeToLevelEvents();
+            CheckAvailability();
+        }
 
         private void OnEnable()
         {
@@ -58,13 +69,45 @@ namespace RestaurantTycoon
 
             LoadState();
             ApplyCurrentUpgrade();
-            CheckAvailability();
+
+            // If Start() has already run (i.e. this is a re-enable after unlock),
+            // re-subscribe and re-check now. Otherwise Start() will handle it.
+            if (hasStarted)
+            {
+                SubscribeToLevelEvents();
+                CheckAvailability();
+            }
         }
 
         private void OnDisable()
         {
+            UnsubscribeFromLevelEvents();
+
+            // Remove the pending mission so it disappears from the UI when the
+            // object is hidden (e.g. while locked via RTSceneObjectUnlock).
+            RemoveCurrentMission();
+
             if (upgradeSpot != null)
                 upgradeSpot.Hide();
+        }
+
+        private void OnLevelChanged(int _) => CheckAvailability();
+
+        private void SubscribeToLevelEvents()
+        {
+            if (RTLevelManager.Instance == null) return;
+            // Unsubscribe first to guard against double-subscription on repeated enables.
+            RTLevelManager.Instance.OnLevelUp     -= OnLevelChanged;
+            RTLevelManager.Instance.OnLevelLoaded -= OnLevelChanged;
+            RTLevelManager.Instance.OnLevelUp     += OnLevelChanged;
+            RTLevelManager.Instance.OnLevelLoaded += OnLevelChanged;
+        }
+
+        private void UnsubscribeFromLevelEvents()
+        {
+            if (RTLevelManager.Instance == null) return;
+            RTLevelManager.Instance.OnLevelUp     -= OnLevelChanged;
+            RTLevelManager.Instance.OnLevelLoaded -= OnLevelChanged;
         }
 
         // ── Public API ────────────────────────────────────────────────────────
@@ -77,17 +120,13 @@ namespace RestaurantTycoon
             var level = upgradeData.GetLevel(currentLevel);
             if (level == null) return;
 
-            // Spend money.
-            if (CurrencyManager.Instance == null || !CurrencyManager.Instance.SpendMoney(level.cost))
-            {
-                Debug.LogWarning("[RTStaffUpgrade] Not enough money to complete upgrade!");
-                return;
-            }
-
             currentLevel++;
             SaveState();
 
             Debug.Log($"[RTStaffUpgrade] Upgraded '{staffTarget?.name}' to level {currentLevel}. New duration: {level.newDuration}s");
+
+            // Complete the mission for the level we just finished.
+            DynamicMissionManager.Instance?.CompleteStaffUpgradeMission(upgradeData.UpgradeId, currentLevel);
 
             ApplyCurrentUpgrade();
             CheckAvailability();
@@ -113,10 +152,33 @@ namespace RestaurantTycoon
         {
             if (upgradeSpot == null) return;
 
-            if (CanUpgrade)
-                upgradeSpot.Show(this);
-            else
+            if (!CanUpgrade)
+            {
+                RemoveCurrentMission();
                 upgradeSpot.Hide();
+                return;
+            }
+
+            int playerLevel = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+            if (playerLevel >= NextLevel.requiredPlayerLevel)
+            {
+                // Register the mission when the spot first becomes available.
+                string staffName = upgradeData.UpgradeId;
+                DynamicMissionManager.Instance?.RegisterStaffUpgradeMission(
+                    upgradeData.UpgradeId, staffName, currentLevel + 1);
+                upgradeSpot.Show(this);
+            }
+            else
+            {
+                RemoveCurrentMission();
+                upgradeSpot.Hide();
+            }
+        }
+
+        private void RemoveCurrentMission()
+        {
+            if (upgradeData == null || !CanUpgrade) return;
+            DynamicMissionManager.Instance?.RemoveStaffUpgradeMission(upgradeData.UpgradeId, currentLevel + 1);
         }
 
         private void LoadState()

@@ -11,7 +11,8 @@ public enum DynamicMissionType
     UnlockTableCleaner,
     UnlockWashroom,
     UnlockCook,
-    UnlockSceneObject
+    UnlockSceneObject,
+    UpgradeStaff
 }
 
 [Serializable]
@@ -417,6 +418,30 @@ public class DynamicMissionManager : MonoBehaviour
     public void RemoveSceneObjectUnlockMission(string objectId)
     {
         RemoveMission($"UnlockSceneObject_{objectId}");
+    }
+
+    // ── Staff Upgrade ─────────────────────────────────────────────────────────
+
+    public void RegisterStaffUpgradeMission(string staffId, string staffName, int targetLevel)
+    {
+        string missionId = $"UpgradeStaff_{staffId}_Lvl{targetLevel}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.UpgradeStaff, $"Upgrade {staffName} to Level {targetLevel}");
+        activeMissions[missionId] = mission;
+        SaveMissions();
+        Log($"Registered staff upgrade mission: {mission.displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteStaffUpgradeMission(string staffId, int completedLevel)
+    {
+        CompleteMission($"UpgradeStaff_{staffId}_Lvl{completedLevel}");
+    }
+
+    public void RemoveStaffUpgradeMission(string staffId, int targetLevel)
+    {
+        RemoveMission($"UpgradeStaff_{staffId}_Lvl{targetLevel}");
     }
     
     /// <summary>

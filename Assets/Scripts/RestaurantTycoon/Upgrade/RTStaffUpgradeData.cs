@@ -17,6 +17,9 @@ namespace RestaurantTycoon
             [Tooltip("Label shown in the upgrade spot UI.")]
             public string upgradeName = "Speed Up";
 
+            [Tooltip("Minimum game level the player must reach before this upgrade becomes visible.")]
+            public int requiredPlayerLevel = 1;
+
             [Tooltip("Cost the player must pay to buy this upgrade.")]
             public int cost = 100;
 
