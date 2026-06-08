@@ -128,6 +128,7 @@ namespace RestaurantTycoon
 
             RefreshUI();
 
+            RTSpotRegistry.RegisterSpot(transform);
             gameObject.SetActive(true);
 
             if (canvas != null)
@@ -145,6 +146,7 @@ namespace RestaurantTycoon
         /// <summary>Hides and deactivates the spot.</summary>
         public void Hide()
         {
+            RTSpotRegistry.UnregisterSpot(transform);
             StopPulse();
             isPaymentActive = false;
             isPlayerInRange = false;
