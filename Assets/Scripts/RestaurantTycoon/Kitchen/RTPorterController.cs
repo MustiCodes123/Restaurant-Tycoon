@@ -246,9 +246,29 @@ namespace RestaurantTycoon
         {
             actionTimer += Time.deltaTime;
             if (actionTimer < collectDelay) return;
+            actionTimer = 0f;
 
+            int countBefore = heldIngredients.Count;
             TakeIngredientFromContainer();
+            bool pickedUp = heldIngredients.Count > countBefore;
 
+            // Stay at the container if: a pickup just happened AND we haven't hit
+            // capacity yet AND the source still has items to take.
+            // (We deliberately don't block on inputContainer.IsFull here —
+            // that's only checked inside TakeIngredientFromContainer itself.)
+            bool canTakeMore = pickedUp &&
+                               heldIngredients.Count < carryCapacity &&
+                               ingredientContainer != null &&
+                               ingredientContainer.StockedCount > 0;
+
+            Debug.Log($"[RTPorterController] Collect tick: held={heldIngredients.Count}/{carryCapacity} " +
+                      $"pickedUp={pickedUp} sourceStock={ingredientContainer?.StockedCount} " +
+                      $"inputFull={inputContainer?.IsFull} canTakeMore={canTakeMore}");
+
+            if (canTakeMore)
+                return; // wait another collectDelay tick at the container
+
+            // Finished collecting — head to the input container or idle.
             if (heldIngredients.Count > 0)
             {
                 MoveTo(inputContainer.transform.position);
@@ -257,7 +277,6 @@ namespace RestaurantTycoon
             }
             else
             {
-                // Nothing available yet
                 GoToNearestIdleSpot();
             }
         }
@@ -350,23 +369,20 @@ namespace RestaurantTycoon
 
         private void TakeIngredientFromContainer()
         {
-            if (ingredientContainer == null) return;
+            if (ingredientContainer == null || ingredientContainer.StockedCount == 0) return;
+            if (inputContainer == null || inputContainer.IsFull) return;
+            if (heldIngredients.Count >= carryCapacity) return;
 
-            while (heldIngredients.Count < carryCapacity &&
-                   ingredientContainer.StockedCount > 0 &&
-                   inputContainer != null && !inputContainer.IsFull)
-            {
-                RTIngredient ingredient = ingredientContainer.TakeTopIngredient();
-                if (ingredient == null) break;
+            RTIngredient ingredient = ingredientContainer.TakeTopIngredient();
+            if (ingredient == null) return;
 
-                DOTween.Kill(ingredient.transform, true);
-                ingredient.transform.SetParent(carryPoint);
-                ingredient.transform
-                    .DOLocalMove(carryStackOffset * heldIngredients.Count, collectDelay * 0.5f)
-                    .SetEase(Ease.OutQuad);
-                ingredient.transform.DOLocalRotate(Vector3.zero, collectDelay * 0.5f);
-                heldIngredients.Add(ingredient);
-            }
+            DOTween.Kill(ingredient.transform, true);
+            ingredient.transform.SetParent(carryPoint);
+            ingredient.transform
+                .DOLocalMove(carryStackOffset * heldIngredients.Count, collectDelay * 0.5f)
+                .SetEase(Ease.OutQuad);
+            ingredient.transform.DOLocalRotate(Vector3.zero, collectDelay * 0.5f);
+            heldIngredients.Add(ingredient);
         }
 
         private void DeliverIngredientToInput()

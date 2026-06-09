@@ -20,9 +20,14 @@ namespace RestaurantTycoon
         [SerializeField] private RTStaffUpgradeData upgradeData;
 
         [Header("Staff Target")]
-        [Tooltip("The staff MonoBehaviour to upgrade. Must be an RTCook, RTPorterController, " +
-                 "or RTCashierCharacter (any MonoBehaviour that implements IUpgradeableStaff).")]
+        [Tooltip("The staff MonoBehaviour to upgrade. Must implement IUpgradeableStaff. " +
+                 "Leave empty when upgrading a janitor — use Janitor Unlock instead.")]
         [SerializeField] private MonoBehaviour staffTarget;
+
+        [Tooltip("Assign the RTJanitorUnlock that manages this janitor. " +
+                 "The upgrade system will connect to the janitor automatically when it is spawned. " +
+                 "Leave empty for non-janitor staff.")]
+        [SerializeField] private RTJanitorUnlock janitorUnlock;
 
         [Header("Upgrade Spot")]
         [Tooltip("The RTUpgradeSpot that handles player interaction.")]
@@ -53,9 +58,19 @@ namespace RestaurantTycoon
 
         private void OnEnable()
         {
-            // Resolve the staff interface once.
-            if (staffInterface == null && staffTarget != null)
+            // Janitor path: connect via RTJanitorUnlock instead of a direct drag-drop.
+            if (janitorUnlock != null)
             {
+                janitorUnlock.OnJanitorUnlocked -= OnJanitorSpawned;
+                janitorUnlock.OnJanitorUnlocked += OnJanitorSpawned;
+
+                // Janitor may already be unlocked and spawned (e.g. scene reload).
+                if (janitorUnlock.IsUnlocked && janitorUnlock.SpawnedJanitor != null)
+                    ConnectToStaff(janitorUnlock.SpawnedJanitor);
+            }
+            else if (staffInterface == null && staffTarget != null)
+            {
+                // Standard path: direct reference.
                 staffInterface = staffTarget as IUpgradeableStaff;
                 if (staffInterface == null)
                     Debug.LogError($"[RTStaffUpgrade] '{staffTarget.name}' does not implement IUpgradeableStaff!");
@@ -81,6 +96,9 @@ namespace RestaurantTycoon
 
         private void OnDisable()
         {
+            if (janitorUnlock != null)
+                janitorUnlock.OnJanitorUnlocked -= OnJanitorSpawned;
+
             UnsubscribeFromLevelEvents();
 
             // Remove the pending mission so it disappears from the UI when the
@@ -92,6 +110,25 @@ namespace RestaurantTycoon
         }
 
         private void OnLevelChanged(int _) => CheckAvailability();
+
+        private void OnJanitorSpawned()
+        {
+            if (janitorUnlock?.SpawnedJanitor != null)
+                ConnectToStaff(janitorUnlock.SpawnedJanitor);
+        }
+
+        private void ConnectToStaff(MonoBehaviour staff)
+        {
+            staffInterface = staff as IUpgradeableStaff;
+            if (staffInterface == null)
+            {
+                Debug.LogError($"[RTStaffUpgrade] Spawned janitor '{staff.name}' does not implement IUpgradeableStaff!");
+                return;
+            }
+            // Replay any already-purchased upgrades onto the freshly spawned janitor.
+            ApplyCurrentUpgrade();
+            Debug.Log($"[RTStaffUpgrade] Connected to spawned janitor '{staff.name}' and applied {currentLevel} upgrade(s).");
+        }
 
         private void SubscribeToLevelEvents()
         {
