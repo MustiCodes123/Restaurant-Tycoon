@@ -12,7 +12,8 @@ public enum DynamicMissionType
     UnlockWashroom,
     UnlockCook,
     UnlockSceneObject,
-    UpgradeStaff
+    UpgradeStaff,
+    DriveThruOrder
 }
 
 [Serializable]
@@ -443,6 +444,32 @@ public class DynamicMissionManager : MonoBehaviour
     {
         RemoveMission($"UpgradeStaff_{staffId}_Lvl{targetLevel}");
     }
+
+    // ── Drive-Through Orders ───────────────────────────────────────────────────
+
+    public void RegisterDriveThruMission(string carId, string foodName)
+    {
+        string missionId = $"DriveThru_{carId}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.DriveThruOrder,
+            $"Drive-through: {foodName} order waiting!");
+        activeMissions[missionId] = mission;
+        // Intentionally NOT saved to PlayerPrefs — drive-through missions are
+        // transient runtime events that must not persist across sessions.
+        Log($"Registered drive-through mission: {mission.displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteDriveThruMission(string carId)
+    {
+        CompleteMission($"DriveThru_{carId}");
+    }
+
+    public void RemoveDriveThruMission(string carId)
+    {
+        RemoveMission($"DriveThru_{carId}");
+    }
     
     /// <summary>
     /// Gets all active (non-completed) missions
@@ -506,6 +533,10 @@ public class DynamicMissionManager : MonoBehaviour
         {
             foreach (var mission in saveData.missions)
             {
+                // Skip drive-through orders — they are transient runtime events
+                // tied to car instances that no longer exist after a session ends.
+                if (mission.missionType == DynamicMissionType.DriveThruOrder) continue;
+
                 // Only load non-completed missions
                 if (!mission.isCompleted)
                 {

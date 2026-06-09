@@ -123,7 +123,7 @@ namespace RestaurantTycoon
             currentLevel++;
             SaveState();
 
-            Debug.Log($"[RTStaffUpgrade] Upgraded '{staffTarget?.name}' to level {currentLevel}. New duration: {level.newDuration}s");
+            Debug.Log($"[RTStaffUpgrade] Upgraded '{staffTarget?.name}' to level {currentLevel}. Duration: {level.newDuration}s, Speed: {level.newMoveSpeed}, Carry: {level.newCarryCapacity}");
 
             // Complete the mission for the level we just finished.
             DynamicMissionManager.Instance?.CompleteStaffUpgradeMission(upgradeData.UpgradeId, currentLevel);
@@ -137,15 +137,22 @@ namespace RestaurantTycoon
 
         // ── Private ───────────────────────────────────────────────────────────
 
-        /// <summary>Applies the most recently purchased upgrade duration to the staff.</summary>
+        /// <summary>Applies all stat changes from the most recently purchased upgrade level.</summary>
         private void ApplyCurrentUpgrade()
         {
             if (staffInterface == null || currentLevel == 0) return;
 
-            // The last purchased level is at index currentLevel - 1.
             var lastPurchased = upgradeData.GetLevel(currentLevel - 1);
-            if (lastPurchased != null)
+            if (lastPurchased == null) return;
+
+            if (lastPurchased.newDuration > 0f)
                 staffInterface.SetUpgradedDuration(lastPurchased.newDuration);
+
+            if (lastPurchased.newMoveSpeed > 0f)
+                staffInterface.SetUpgradedSpeed(lastPurchased.newMoveSpeed);
+
+            if (lastPurchased.newCarryCapacity > 0)
+                staffInterface.SetCarryCapacity(lastPurchased.newCarryCapacity);
         }
 
         private void CheckAvailability()

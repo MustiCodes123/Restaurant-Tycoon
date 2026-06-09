@@ -40,6 +40,10 @@ namespace RestaurantTycoon
         [Header("Carry")]
         [Tooltip("Point on the porter where the held ingredient is shown.")]
         [SerializeField] private Transform carryPoint;
+        [Tooltip("Maximum number of ingredients the porter carries per trip.")]
+        [SerializeField] private int carryCapacity = 1;
+        [Tooltip("Local-space offset between each stacked ingredient.")]
+        [SerializeField] private Vector3 carryStackOffset = new Vector3(0f, 0.1f, 0f);
 
         [Header("References")]
         [Tooltip("The ingredient container this porter sources ingredients from.")]
@@ -54,20 +58,36 @@ namespace RestaurantTycoon
         // ── Runtime ───────────────────────────────────────────────────────────
         private NavMeshAgent agent;
         private RTPorterState currentState = RTPorterState.Idle;
-        private RTIngredient heldIngredient;
+        private List<RTIngredient> heldIngredients = new List<RTIngredient>();
         private float searchTimer;
         private float actionTimer;
 
         public RTPorterState State => currentState;
-        public bool IsCarryingIngredient => heldIngredient != null;
+        public bool IsCarryingIngredient => heldIngredients.Count > 0;
 
-        /// <summary>Reduces collect and deliver delays. Called by RTStaffUpgrade when an upgrade is purchased.</summary>
+        /// <summary>Reduces collect and deliver delays.</summary>
         public void SetUpgradedDuration(float newDuration)
         {
             float clamped = Mathf.Max(0.1f, newDuration);
             collectDelay = clamped;
             deliverDelay = clamped;
             Debug.Log($"[RTPorterController] Porter delays upgraded to {clamped}s");
+        }
+
+        /// <summary>Increases movement speed.</summary>
+        public void SetUpgradedSpeed(float newSpeed)
+        {
+            float clamped = Mathf.Max(0.5f, newSpeed);
+            moveSpeed = clamped;
+            if (agent != null) agent.speed = clamped;
+            Debug.Log($"[RTPorterController] Porter speed upgraded to {clamped}");
+        }
+
+        /// <summary>Sets how many ingredients the porter carries per trip.</summary>
+        public void SetCarryCapacity(int capacity)
+        {
+            carryCapacity = Mathf.Max(1, capacity);
+            Debug.Log($"[RTPorterController] Porter carry capacity upgraded to {carryCapacity}");
         }
 
         #region Unity
@@ -184,9 +204,9 @@ namespace RestaurantTycoon
 
         private void HandleIdle()
         {
-            // If holding an ingredient from an aborted delivery, re-attempt as soon
-            // as the input container has space — don't collect a second ingredient.
-            if (heldIngredient != null)
+            // If holding ingredients from an aborted delivery, re-attempt as soon
+            // as the input container has space — don't collect more.
+            if (heldIngredients.Count > 0)
             {
                 if (inputContainer != null && !inputContainer.IsFull)
                 {
@@ -229,7 +249,7 @@ namespace RestaurantTycoon
 
             TakeIngredientFromContainer();
 
-            if (heldIngredient != null)
+            if (heldIngredients.Count > 0)
             {
                 MoveTo(inputContainer.transform.position);
                 currentState = RTPorterState.MovingToInputContainer;
@@ -276,9 +296,9 @@ namespace RestaurantTycoon
 
         private void HandleMovingToIdle()
         {
-            // Re-deliver a held ingredient as soon as the input has space,
+            // Re-deliver held ingredients as soon as the input has space,
             // rather than finishing the idle walk first.
-            if (heldIngredient != null && inputContainer != null && !inputContainer.IsFull)
+            if (heldIngredients.Count > 0 && inputContainer != null && !inputContainer.IsFull)
             {
                 MoveTo(inputContainer.transform.position);
                 currentState = RTPorterState.MovingToInputContainer;
@@ -330,34 +350,45 @@ namespace RestaurantTycoon
 
         private void TakeIngredientFromContainer()
         {
-            if (ingredientContainer == null || ingredientContainer.StockedCount == 0) return;
+            if (ingredientContainer == null) return;
 
-            RTIngredient ingredient = ingredientContainer.TakeTopIngredient();
-            if (ingredient == null) return;
+            while (heldIngredients.Count < carryCapacity &&
+                   ingredientContainer.StockedCount > 0 &&
+                   inputContainer != null && !inputContainer.IsFull)
+            {
+                RTIngredient ingredient = ingredientContainer.TakeTopIngredient();
+                if (ingredient == null) break;
 
-            heldIngredient = ingredient;
-
-            // Parent to carry point and animate into hand
-            DOTween.Kill(heldIngredient.transform, true);
-            heldIngredient.transform.SetParent(carryPoint);
-
-            heldIngredient.transform
-                .DOLocalMove(Vector3.zero, collectDelay * 0.5f)
-                .SetEase(Ease.OutQuad);
-            heldIngredient.transform
-                .DOLocalRotate(Vector3.zero, collectDelay * 0.5f);
+                DOTween.Kill(ingredient.transform, true);
+                ingredient.transform.SetParent(carryPoint);
+                ingredient.transform
+                    .DOLocalMove(carryStackOffset * heldIngredients.Count, collectDelay * 0.5f)
+                    .SetEase(Ease.OutQuad);
+                ingredient.transform.DOLocalRotate(Vector3.zero, collectDelay * 0.5f);
+                heldIngredients.Add(ingredient);
+            }
         }
 
         private void DeliverIngredientToInput()
         {
-            if (heldIngredient == null || inputContainer == null) return;
+            if (heldIngredients.Count == 0 || inputContainer == null) return;
 
-            // Unparent before dropping into input container
-            DOTween.Kill(heldIngredient.transform, true);
-            heldIngredient.transform.SetParent(null);
+            var toDeliver = new List<RTIngredient>(heldIngredients);
+            heldIngredients.Clear();
 
-            inputContainer.ReceiveIngredient(heldIngredient);
-            heldIngredient = null;
+            foreach (var ingredient in toDeliver)
+            {
+                if (ingredient == null) continue;
+                if (inputContainer.IsFull)
+                {
+                    // Container filled up mid-delivery — hold the rest for next attempt.
+                    heldIngredients.Add(ingredient);
+                    continue;
+                }
+                DOTween.Kill(ingredient.transform, true);
+                ingredient.transform.SetParent(null);
+                inputContainer.ReceiveIngredient(ingredient);
+            }
         }
 
         private void GoToNearestIdleSpot()

@@ -26,8 +26,18 @@ namespace RestaurantTycoon
             [Tooltip("The new work duration (seconds) after this upgrade is applied.\n" +
                      "For cooks this is cookDuration.\n" +
                      "For porters this is collectDelay & deliverDelay.\n" +
-                     "For cashiers this is serviceDuration.")]
+                     "For cashiers this is serviceDuration.\n" +
+                     "Set to 0 to leave duration unchanged.")]
             public float newDuration = 1.5f;
+
+            [Tooltip("New movement speed for staff that support it (porter, janitor).\nSet to 0 to leave speed unchanged.")]
+            public float newMoveSpeed = 0f;
+
+            [Tooltip("New carry capacity for staff that support it.\n" +
+                     "Porter: max ingredients carried per trip.\n" +
+                     "Janitor: max tables cleaned per trip.\n" +
+                     "Set to 0 to leave capacity unchanged.")]
+            public int newCarryCapacity = 0;
         }
 
         [Header("Identity")]

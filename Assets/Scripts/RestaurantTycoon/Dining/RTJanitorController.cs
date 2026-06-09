@@ -20,7 +20,7 @@ namespace RestaurantTycoon
     /// collects them all at once, walks to the garbage bin, and disposes them.
     /// Idles at the nearest idle spot when nothing needs cleaning.
     /// </summary>
-    public class RTJanitorController : MonoBehaviour
+    public class RTJanitorController : MonoBehaviour, IUpgradeableStaff
     {
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 3.5f;
@@ -30,6 +30,8 @@ namespace RestaurantTycoon
         [SerializeField] private float searchInterval = 1f;
         [SerializeField] private float collectDelay = 0.5f;
         [SerializeField] private float disposeDelay = 0.5f;
+        [Tooltip("How many dirty tables the janitor cleans per trip before returning to the bin.")]
+        [SerializeField] private int maxTablesPerTrip = 1;
 
         [Header("Animation")]
         [SerializeField] private Animator animator;
@@ -56,6 +58,7 @@ namespace RestaurantTycoon
         private List<RTDirtyDish> heldDishes = new List<RTDirtyDish>();
         private float searchTimer;
         private float actionTimer;
+        private int tablesCollectedThisTrip;
 
         public RTJanitorState State => currentState;
         public bool IsCarryingDishes => heldDishes.Count > 0;
@@ -119,6 +122,33 @@ namespace RestaurantTycoon
             }
         }
 
+        // ── IUpgradeableStaff ──────────────────────────────────────────────────────
+
+        /// <summary>Reduces collect and dispose delays.</summary>
+        public void SetUpgradedDuration(float newDuration)
+        {
+            float clamped = Mathf.Max(0.1f, newDuration);
+            collectDelay = clamped;
+            disposeDelay = clamped;
+            Debug.Log($"[RTJanitorController] Janitor delays upgraded to {clamped}s");
+        }
+
+        /// <summary>Increases movement speed.</summary>
+        public void SetUpgradedSpeed(float newSpeed)
+        {
+            float clamped = Mathf.Max(0.5f, newSpeed);
+            moveSpeed = clamped;
+            if (agent != null) agent.speed = clamped;
+            Debug.Log($"[RTJanitorController] Janitor speed upgraded to {clamped}");
+        }
+
+        /// <summary>Sets how many tables the janitor cleans per trip before returning to the bin.</summary>
+        public void SetCarryCapacity(int capacity)
+        {
+            maxTablesPerTrip = Mathf.Max(1, capacity);
+            Debug.Log($"[RTJanitorController] Janitor max tables per trip upgraded to {maxTablesPerTrip}");
+        }
+
         #endregion
 
         #region State Handlers
@@ -167,6 +197,18 @@ namespace RestaurantTycoon
             if (actionTimer < collectDelay) return;
 
             CollectDishesFromTable();
+            tablesCollectedThisTrip++;
+
+            // If under capacity, check for another dirty table before heading to the bin.
+            if (tablesCollectedThisTrip < maxTablesPerTrip)
+            {
+                RTDiningTable next = FindNearestDirtyTable();
+                if (next != null)
+                {
+                    StartMovingToTable(next);
+                    return;
+                }
+            }
 
             if (heldDishes.Count > 0)
             {
@@ -207,6 +249,7 @@ namespace RestaurantTycoon
             if (actionTimer < disposeDelay) return;
 
             DisposeAllDishes();
+            tablesCollectedThisTrip = 0;
 
             RTDiningTable next = FindNearestDirtyTable();
             if (next != null)
