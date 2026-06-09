@@ -161,6 +161,7 @@ namespace RestaurantTycoon
 
             // 4. Start cooking animation + radial progress
             SetServing(true);
+            inputContainer.StartCookingAnimation();
 
             if (radialProgressUI != null)
             {
@@ -173,6 +174,7 @@ namespace RestaurantTycoon
 
             // 6. Stop cooking animation + radial progress
             SetServing(false);
+            inputContainer.StopCookingAnimation();
 
             if (radialProgressUI != null)
             {
@@ -225,6 +227,7 @@ namespace RestaurantTycoon
 
             // Register on output container before animation (reserves the slot)
             outputContainer.AddItem(finishedItem);
+            outputContainer.PlayItemReadyAnimation();
 
             // Bounce animate to output slot
             obj.transform.DOJump(targetSlot.position, outputBounceHeight, 1, outputBounceDuration)

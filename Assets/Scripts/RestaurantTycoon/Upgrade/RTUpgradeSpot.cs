@@ -121,6 +121,9 @@ namespace RestaurantTycoon
         {
             if (upgrade == null) return;
 
+            // Clean up any leftover money icons from the previous payment cycle.
+            moneyFlowEffect?.ForceCleanup();
+
             owner = upgrade;
             totalCost = upgrade.NextLevel != null ? upgrade.NextLevel.cost : 0;
             currentPayment = 0;
@@ -148,6 +151,7 @@ namespace RestaurantTycoon
         {
             RTSpotRegistry.UnregisterSpot(transform);
             StopPulse();
+            moneyFlowEffect?.ForceCleanup();
             isPaymentActive = false;
             isPlayerInRange = false;
             playerTransform = null;

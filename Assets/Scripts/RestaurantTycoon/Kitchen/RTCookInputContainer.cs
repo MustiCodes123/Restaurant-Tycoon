@@ -35,6 +35,10 @@ namespace RestaurantTycoon
         private RTPlayerCarryController playerCarryController;
         private Coroutine dropCoroutine;
 
+        private Tween cookingShakeTween;
+        private Vector3 originalLocalPosition;
+        private Quaternion originalLocalRotation;
+
         /// <summary>
         /// Fired when a new ingredient is added to the container.
         /// </summary>
@@ -64,6 +68,8 @@ namespace RestaurantTycoon
         private void Start()
         {
             storedIngredients = new RTIngredient[inputSlots.Count];
+            originalLocalPosition = transform.localPosition;
+            originalLocalRotation = transform.localRotation;
 
             // Find player
             GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -231,6 +237,31 @@ namespace RestaurantTycoon
                 if (storedIngredients[i] == null) return i;
             }
             return -1;
+        }
+
+        #endregion
+
+        #region Cooking Animation
+
+        /// <summary>Starts a looping shake on the table to indicate active cooking.</summary>
+        public void StartCookingAnimation()
+        {
+            cookingShakeTween?.Kill();
+            transform.localPosition = originalLocalPosition;
+            transform.localRotation = originalLocalRotation;
+            cookingShakeTween = transform
+                .DOShakeRotation(0.6f, new Vector3(0f, 0f, 3f), 15, 90f, false)
+                .SetLoops(-1, LoopType.Restart)
+                .SetLink(gameObject);
+        }
+
+        /// <summary>Stops the cooking shake and resets the table to its original transform.</summary>
+        public void StopCookingAnimation()
+        {
+            cookingShakeTween?.Kill();
+            cookingShakeTween = null;
+            transform.localPosition = originalLocalPosition;
+            transform.localRotation = originalLocalRotation;
         }
 
         #endregion

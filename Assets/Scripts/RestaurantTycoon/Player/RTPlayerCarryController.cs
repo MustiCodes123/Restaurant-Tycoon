@@ -140,7 +140,9 @@ namespace RestaurantTycoon
             // Complete any active tweens so item reaches its intended final scale/position
             DOTween.Kill(itemTransform, true);
 
-            // Parent immediately so item moves with the player during animation
+            // Parent immediately so item moves with the player during animation.
+            // worldPositionStays=true (default) adjusts localScale so the item's
+            // world-space appearance is preserved — do NOT override it afterwards.
             itemTransform.SetParent(carryBasePoint);
 
             // Mark as animating so LateUpdate doesn't interfere

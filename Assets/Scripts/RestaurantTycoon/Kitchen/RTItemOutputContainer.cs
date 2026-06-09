@@ -24,6 +24,7 @@ namespace RestaurantTycoon
         private bool playerInRange = false;
         private RTPlayerCarryController playerCarryController;
         private Coroutine pickupCoroutine;
+        private Vector3 originalLocalScale;
 
         public int SlotCount => outputSlots.Count;
 
@@ -49,6 +50,7 @@ namespace RestaurantTycoon
         private void Start()
         {
             storedItems = new RTFinishedItem[outputSlots.Count];
+            originalLocalScale = transform.localScale;
 
             // Find player
             GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -73,6 +75,17 @@ namespace RestaurantTycoon
                 if (storedItems[i] == null) return outputSlots[i];
             }
             return null;
+        }
+
+        /// <summary>
+        /// Plays a punch-scale pop on the container to signal a finished item is ready.
+        /// </summary>
+        public void PlayItemReadyAnimation()
+        {
+            transform.DOKill();
+            transform.localScale = originalLocalScale;
+            transform.DOPunchScale(new Vector3(0.18f, 0.18f, 0.18f), 0.5f, 8, 0.5f)
+                .SetLink(gameObject);
         }
 
         /// <summary>
