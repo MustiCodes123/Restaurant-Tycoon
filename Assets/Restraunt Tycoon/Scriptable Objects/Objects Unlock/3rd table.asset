@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTSceneObjectUnlockData
   requiredPlayerLevel: 14
   unlockCost: 250
-  unlockName: 3rd Table
+  unlockName: Table
   description: 
