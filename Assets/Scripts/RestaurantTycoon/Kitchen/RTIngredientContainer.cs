@@ -24,6 +24,10 @@ namespace RestaurantTycoon
         [Tooltip("Where ingredients animate FROM (e.g., a delivery van). If null, uses container position.")]
         [SerializeField] private Transform sourcePoint;
 
+        [Header("Crop Animators")]
+        [Tooltip("Animators of crops linked to this container. Each time an ingredient is produced, isGrow is triggered on all of them.")]
+        [SerializeField] private List<Animator> cropAnimators = new List<Animator>();
+
         [Header("Auto Restock")]
         [SerializeField] private float restockDelay = 1.5f;
         [Tooltip("Delay between each individual ingredient arriving at a slot")]
@@ -172,6 +176,9 @@ namespace RestaurantTycoon
 
             stockedIngredients[slotIndex] = ingredient;
 
+            // Notify crop animators that a new ingredient has been produced
+            TriggerCropAnimators();
+
             // Animate from source to slot
             ingredient.AnimateToSpot(fromPos, slot, arrivalAnimDuration, () =>
             {
@@ -179,6 +186,15 @@ namespace RestaurantTycoon
                 obj.transform.position = slot.position;
                 obj.transform.rotation = slot.rotation;
             });
+        }
+
+        private void TriggerCropAnimators()
+        {
+            foreach (Animator anim in cropAnimators)
+            {
+                if (anim != null)
+                    anim.SetTrigger("isGrow");
+            }
         }
 
         #endregion
