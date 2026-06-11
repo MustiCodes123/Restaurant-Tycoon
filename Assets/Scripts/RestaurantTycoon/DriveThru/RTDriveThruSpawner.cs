@@ -64,6 +64,10 @@ namespace RestaurantTycoon
         [Tooltip("Maximum cars allowed in the drive-through at once. 0 = unlimited.")]
         [SerializeField] private int maxCarsAtOnce = 1;
 
+        [Header("Level Gate")]
+        [Tooltip("Drive-through only begins spawning once the player reaches this level.")]
+        [SerializeField] private int requiredLevel = 1;
+
         // ── Order Settings ────────────────────────────────────────────────────
 
         [Header("Order Settings")]
@@ -84,7 +88,46 @@ namespace RestaurantTycoon
         private void Start()
         {
             if (autoStart)
+            {
+                if (IsLevelRequirementMet())
+                    StartSpawning();
+                else
+                    SubscribeToLevelEvents();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            UnsubscribeFromLevelEvents();
+        }
+
+        private bool IsLevelRequirementMet()
+        {
+            int level = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+            return level >= requiredLevel;
+        }
+
+        private void SubscribeToLevelEvents()
+        {
+            if (RTLevelManager.Instance == null) return;
+            RTLevelManager.Instance.OnLevelUp     += OnLevelChanged;
+            RTLevelManager.Instance.OnLevelLoaded += OnLevelChanged;
+        }
+
+        private void UnsubscribeFromLevelEvents()
+        {
+            if (RTLevelManager.Instance == null) return;
+            RTLevelManager.Instance.OnLevelUp     -= OnLevelChanged;
+            RTLevelManager.Instance.OnLevelLoaded -= OnLevelChanged;
+        }
+
+        private void OnLevelChanged(int newLevel)
+        {
+            if (newLevel >= requiredLevel)
+            {
+                UnsubscribeFromLevelEvents();
                 StartSpawning();
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────

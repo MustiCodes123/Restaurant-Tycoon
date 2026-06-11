@@ -13,7 +13,8 @@ public enum DynamicMissionType
     UnlockCook,
     UnlockSceneObject,
     UpgradeStaff,
-    DriveThruOrder
+    DriveThruOrder,
+    Tutorial
 }
 
 [Serializable]
@@ -469,6 +470,31 @@ public class DynamicMissionManager : MonoBehaviour
     public void RemoveDriveThruMission(string carId)
     {
         RemoveMission($"DriveThru_{carId}");
+    }
+
+    // ── Tutorial Steps ────────────────────────────────────────────────────────
+
+    public void RegisterTutorialStep(string stepId, string displayText)
+    {
+        string missionId = $"Tutorial_{stepId}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.Tutorial, displayText);
+        activeMissions[missionId] = mission;
+        // Tutorial steps are intentionally NOT saved — they are driven by RTTutorialController
+        // and cleared on completion or when the tutorial finishes.
+        Log($"Registered tutorial step: {displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteTutorialStep(string stepId)
+    {
+        CompleteMission($"Tutorial_{stepId}");
+    }
+
+    public void RemoveTutorialStep(string stepId)
+    {
+        RemoveMission($"Tutorial_{stepId}");
     }
     
     /// <summary>

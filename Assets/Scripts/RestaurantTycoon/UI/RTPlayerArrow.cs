@@ -1,5 +1,6 @@
 using UnityEngine;
 using DG.Tweening;
+using System.Collections.Generic;
 
 namespace RestaurantTycoon
 {
@@ -54,12 +55,22 @@ namespace RestaurantTycoon
         [SerializeField] private Vector3 punchScale = new Vector3(0.4f, 0.4f, 0f);
         [SerializeField] private float punchDuration = 0.35f;
 
-        // ── Runtime ───────────────────────────────────────────────────────────
+        [Header("Tutorial Waypoints")]
+        [Tooltip("Ordered GameObjects the arrow guides the player through at game start. Completes once and never repeats (saved via PlayerPrefs).")]
+        [SerializeField] private List<GameObject> tutorialWaypoints = new List<GameObject>();
+        [Tooltip("Horizontal distance (XZ) from the player to a waypoint that counts as arrived and advances to the next.")]
+        [SerializeField] private float tutorialArrivalDistance = 2f;
+
+        // ── Runtime ─────────────────────────────────────────────────────
+        private const string TUTORIAL_DONE_KEY = "RTPlayerArrow_TutorialDone";
         private Transform currentTarget;
         private float currentAngleZ;
         private Tween bobTween;
         private Tween breatheTween;
         private Vector3 arrowLocalOrigin;
+        private int tutorialIndex;
+        private bool tutorialActive;
+        private Transform tutorialOverrideTarget; // set by RTTutorialController
 
         // ── Unity ─────────────────────────────────────────────────────────────
 
@@ -71,12 +82,24 @@ namespace RestaurantTycoon
             if (arrowTransform != null)
                 arrowLocalOrigin = arrowTransform.localPosition;
 
+            bool tutorialDone = PlayerPrefs.GetInt(TUTORIAL_DONE_KEY, 0) == 1;
+            tutorialActive = !tutorialDone && tutorialWaypoints != null && tutorialWaypoints.Count > 0;
+            tutorialIndex = 0;
+
             arrowCanvas.SetActive(false);
         }
 
         private void OnEnable()
         {
             RTSpotRegistry.OnTargetChanged += OnTargetChanged;
+
+            if (tutorialActive)
+            {
+                ApplyTutorialTarget();
+                arrowCanvas.SetActive(true);
+                return;
+            }
+
             // Sync immediately in case spots were registered before this enabled.
             SyncTarget(animated: false);
         }
@@ -84,8 +107,6 @@ namespace RestaurantTycoon
         private void OnDisable()
         {
             RTSpotRegistry.OnTargetChanged -= OnTargetChanged;
-            StopBob();
-            StopBreathe();
         }
 
         private void OnDestroy()
@@ -95,6 +116,13 @@ namespace RestaurantTycoon
 
         private void Update()
         {
+            if (tutorialActive)
+                TickTutorial();
+
+            // Controller-driven override always wins
+            if (tutorialOverrideTarget != null)
+                currentTarget = tutorialOverrideTarget;
+
             if (currentTarget == null || arrowTransform == null) return;
 
             // Project the direction to the target onto the horizontal plane.
@@ -124,6 +152,8 @@ namespace RestaurantTycoon
 
         private void OnTargetChanged()
         {
+            // Suppress registry changes while an override or waypoint tutorial is active
+            if (tutorialActive || tutorialOverrideTarget != null) return;
             SyncTarget(animated: true);
         }
 
@@ -135,67 +165,94 @@ namespace RestaurantTycoon
 
             if (currentTarget == null)
             {
-                StopBob();
-                StopBreathe();
                 arrowCanvas.SetActive(false);
                 return;
             }
 
-            bool wasHidden = !arrowCanvas.activeSelf;
             arrowCanvas.SetActive(true);
+        }
 
-            if (wasHidden)
+        private void StartBob() { }
+        private void StopBob() { }
+        private void StartBreathe() { }
+        private void StopBreathe() { }
+
+        // ── Public override API (used by RTTutorialController) ─────────────────────
+
+        /// <summary>
+        /// Point the arrow at a specific world transform, overriding the RTSpotRegistry.
+        /// Call ClearTutorialOverride() to return to normal registry behaviour.
+        /// </summary>
+        public void SetTutorialOverrideTarget(Transform target)
+        {
+            tutorialOverrideTarget = target;
+            currentTarget = target;
+
+            if (target != null)
+                arrowCanvas.SetActive(true);
+        }
+
+        /// <summary>
+        /// Remove the controller override and resume normal RTSpotRegistry-driven behaviour.
+        /// </summary>
+        public void ClearTutorialOverride()
+        {
+            tutorialOverrideTarget = null;
+            SyncTarget(animated: false);
+        }
+
+        // ── Tutorial ──────────────────────────────────────────────────────────
+
+        private void TickTutorial()
+        {
+            if (tutorialIndex >= tutorialWaypoints.Count)
             {
-                StartBob();
-                StartBreathe();
+                CompleteTutorial();
+                return;
             }
 
-            if (animated && targetActuallyChanged && arrowTransform != null)
+            // Skip any null entries
+            if (tutorialWaypoints[tutorialIndex] == null)
             {
-                arrowTransform.DOKill();
-                arrowTransform.DOPunchScale(punchScale, punchDuration, 8, 0.5f);
+                tutorialIndex++;
+                ApplyTutorialTarget();
+                return;
+            }
+
+            // Use XZ distance so vertical offset of the canvas doesn't affect the check
+            Vector3 playerPos = transform.parent != null ? transform.parent.position : transform.position;
+            Vector3 toWp = tutorialWaypoints[tutorialIndex].transform.position - playerPos;
+            toWp.y = 0f;
+            if (toWp.magnitude <= tutorialArrivalDistance)
+            {
+                tutorialIndex++;
+                ApplyTutorialTarget();
             }
         }
 
-        private void StartBob()
+        private void ApplyTutorialTarget()
         {
-            if (arrowTransform == null) return;
-            StopBob();
+            // Skip null entries
+            while (tutorialIndex < tutorialWaypoints.Count && tutorialWaypoints[tutorialIndex] == null)
+                tutorialIndex++;
 
-            arrowTransform.localPosition = arrowLocalOrigin;
-            bobTween = arrowTransform
-                .DOLocalMoveY(arrowLocalOrigin.y + bobAmount, bobDuration)
-                .SetEase(Ease.InOutSine)
-                .SetLoops(-1, LoopType.Yoyo);
+            if (tutorialIndex >= tutorialWaypoints.Count)
+            {
+                CompleteTutorial();
+                return;
+            }
+
+            currentTarget = tutorialWaypoints[tutorialIndex].transform;
         }
 
-        private void StopBob()
+        private void CompleteTutorial()
         {
-            bobTween?.Kill();
-            bobTween = null;
-            if (arrowTransform != null)
-                arrowTransform.localPosition = arrowLocalOrigin;
-        }
-
-        private void StartBreathe()
-        {
-            if (arrowTransform == null) return;
-            StopBreathe();
-
-            arrowTransform.localScale = Vector3.one;
-            breatheTween = arrowTransform
-                .DOScale(breatheScaleMax, breatheDuration)
-                .From(breatheScaleMin)
-                .SetEase(Ease.InOutSine)
-                .SetLoops(-1, LoopType.Yoyo);
-        }
-
-        private void StopBreathe()
-        {
-            breatheTween?.Kill();
-            breatheTween = null;
-            if (arrowTransform != null)
-                arrowTransform.localScale = Vector3.one;
+            tutorialActive = false;
+            PlayerPrefs.SetInt(TUTORIAL_DONE_KEY, 1);
+            PlayerPrefs.Save();
+            Debug.Log("[RTPlayerArrow] Tutorial waypoint sequence complete.");
+            // Resume normal registry-driven arrow behaviour
+            SyncTarget(animated: false);
         }
     }
 }

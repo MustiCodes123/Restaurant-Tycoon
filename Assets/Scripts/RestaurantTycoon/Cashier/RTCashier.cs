@@ -52,6 +52,9 @@ namespace RestaurantTycoon
         /// <summary>Fired when the front customer is fully served (radial complete).</summary>
         public event Action OnCustomerServed;
 
+        /// <summary>Fired when the first customer arrives and is ready to be served.</summary>
+        public event Action OnCustomerReadyAtCashier;
+
         #region Customer Queue
 
         public int AddCustomerToQueue(RTCustomer customer)
@@ -61,6 +64,11 @@ namespace RestaurantTycoon
             queue.Add(customer);
             int pos = queue.Count - 1;
             Debug.Log($"[RTCashier] Customer queued at position {pos}. Queue: {queue.Count}/{maxQueueSize}");
+
+            // Fire when the very first customer joins and becomes the front of queue
+            if (pos == 0)
+                OnCustomerReadyAtCashier?.Invoke();
+
             return pos;
         }
 

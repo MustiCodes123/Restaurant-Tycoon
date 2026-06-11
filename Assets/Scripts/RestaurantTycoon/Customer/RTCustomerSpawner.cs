@@ -39,6 +39,8 @@ namespace RestaurantTycoon
         [SerializeField] private List<Material> customerSkins = new List<Material>();
 
         [Header("Frenzy Mode")]
+        [Tooltip("Player level required before frenzy mode can activate.")]
+        [SerializeField] private int frenzyRequiredLevel = 1;
         [Tooltip("Seconds after game start before the first frenzy begins.")]
         [SerializeField] private float frenzyStartDelay = 60f;
         [Tooltip("How long the frenzy lasts in seconds.")]
@@ -226,6 +228,10 @@ namespace RestaurantTycoon
                 while (activeCustomers.Count >= customerCount)
                     yield return new WaitForSeconds(0.5f);
 
+                // Wait until the level requirement for frenzy is met
+                while (!IsFrenzyLevelMet())
+                    yield return new WaitForSeconds(1f);
+
                 // Customer count dropped below threshold — begin countdown
                 Debug.Log("[RTCustomerSpawner] Frenzy countdown started.");
                 yield return new WaitForSeconds(frenzyStartDelay);
@@ -236,6 +242,12 @@ namespace RestaurantTycoon
                 // Small gap before re-arming so the batch loop can stabilise
                 yield return new WaitForSeconds(1f);
             }
+        }
+
+        private bool IsFrenzyLevelMet()
+        {
+            int level = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+            return level >= frenzyRequiredLevel;
         }
 
         private IEnumerator RunFrenzy()

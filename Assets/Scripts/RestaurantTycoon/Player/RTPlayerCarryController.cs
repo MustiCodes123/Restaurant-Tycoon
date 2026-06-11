@@ -35,6 +35,9 @@ namespace RestaurantTycoon
         private HashSet<Transform> animatingItems = new HashSet<Transform>();
         private bool isMoving = false;
 
+        /// <summary>Fired whenever the carried stack changes (pickup or removal).</summary>
+        public event System.Action OnCarryChanged;
+
         public int CarriedCount => carriedItems.Count;
         public bool IsCarrying => carriedItems.Count > 0;
         public bool CanCarryMore
@@ -168,6 +171,7 @@ namespace RestaurantTycoon
             }
 
             Debug.Log($"[RTPlayerCarryController] Picked up {item.CarryType}. Stack: {carriedItems.Count}/{maxCarryCount}");
+            OnCarryChanged?.Invoke();
             return true;
         }
 
@@ -328,6 +332,7 @@ namespace RestaurantTycoon
             carriedItems.Clear();
 
             Debug.Log($"[RTPlayerCarryController] Disposed all {count} items");
+            OnCarryChanged?.Invoke();
             return count;
         }
 
