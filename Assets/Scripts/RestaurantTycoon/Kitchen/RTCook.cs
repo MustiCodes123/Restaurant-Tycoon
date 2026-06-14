@@ -57,6 +57,14 @@ namespace RestaurantTycoon
 
         private void Start()
         {
+            // Lock position and rotation completely
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+                rb.constraints = RigidbodyConstraints.FreezeAll;
+            }
+
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
 

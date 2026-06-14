@@ -19,8 +19,10 @@ namespace RestaurantTycoon
         [SerializeField] private RTIngredientType acceptedIngredientType;
 
         [Header("Slots")]
-        [Tooltip("Points where dropped ingredients sit visually. First is bottom.")]
-        [SerializeField] private List<Transform> inputSlots = new List<Transform>();
+        [Tooltip("The base slot position where ingredients will stack.")]
+        [SerializeField] private Transform slotReference;
+        [Tooltip("Gap/distance between each stacked ingredient in the queue.")]
+        [SerializeField] private float gapBetweenItems = 0.3f;
 
         [Header("Player Detection")]
         [SerializeField] private LayerMask playerLayer;
@@ -33,6 +35,7 @@ namespace RestaurantTycoon
         [Header("Cooking Animation")]
         [SerializeField] private GameObject shakeTarget;
 
+        private const int MAX_SLOTS = 6;
         private RTIngredient[] storedIngredients;
         private bool playerInRange = false;
         private RTPlayerCarryController playerCarryController;
@@ -49,7 +52,7 @@ namespace RestaurantTycoon
         /// </summary>
         public event Action OnIngredientAdded;
 
-        public int SlotCount => inputSlots.Count;
+        public int SlotCount => MAX_SLOTS;
 
         public int StoredCount
         {
@@ -67,12 +70,12 @@ namespace RestaurantTycoon
             }
         }
 
-        public bool IsFull => StoredCount >= inputSlots.Count;
+        public bool IsFull => StoredCount >= MAX_SLOTS;
         public bool HasIngredient => StoredCount > 0;
 
         private void Start()
         {
-            storedIngredients = new RTIngredient[inputSlots.Count];
+            storedIngredients = new RTIngredient[MAX_SLOTS];
             originalLocalPosition = transform.localPosition;
             originalLocalRotation = transform.localRotation;
 
@@ -91,6 +94,19 @@ namespace RestaurantTycoon
                 if (playerCarryController == null)
                     playerCarryController = player.GetComponentInChildren<RTPlayerCarryController>();
             }
+        }
+
+        /// <summary>
+        /// Calculate the position for an ingredient at the given stack index.
+        /// </summary>
+        private Vector3 GetStackPosition(int stackIndex)
+        {
+            if (slotReference == null)
+            {
+                Debug.LogError("[RTCookInputContainer] Slot reference is not assigned!");
+                return Vector3.zero;
+            }
+            return slotReference.position + Vector3.up * (gapBetweenItems * stackIndex);
         }
 
         #region Player Drop
@@ -189,7 +205,7 @@ namespace RestaurantTycoon
 
                 // Place in slot with bounce animation
                 storedIngredients[slotIndex] = ingredient;
-                Transform slot = inputSlots[slotIndex];
+                Vector3 targetPosition = GetStackPosition(slotIndex);
 
                 // Save the world-space scale before unparenting
                 Vector3 savedScale = ingredient.transform.lossyScale;
@@ -200,12 +216,13 @@ namespace RestaurantTycoon
                 ingredient.transform.SetParent(null);
                 ingredient.transform.localScale = savedScale;
 
-                ingredient.transform.DOJump(slot.position, dropJumpHeight, 1, dropDuration)
+                ingredient.transform.DOJump(targetPosition, dropJumpHeight, 1, dropDuration)
                     .SetEase(Ease.OutQuad)
                     .OnComplete(() =>
                     {
-                        ingredient.transform.position = slot.position;
-                        ingredient.transform.rotation = slot.rotation;
+                        ingredient.transform.position = targetPosition;
+                        if (slotReference != null)
+                            ingredient.transform.rotation = slotReference.rotation;
                     });
 
                 Debug.Log($"[RTCookInputContainer] (ID:{GetInstanceID()}) Ingredient dropped into slot {slotIndex}. Stored: {StoredCount}/{SlotCount}");
@@ -235,6 +252,20 @@ namespace RestaurantTycoon
                 {
                     RTIngredient ingredient = storedIngredients[i];
                     storedIngredients[i] = null;
+                    
+                    // Shift all ingredients above down by one position
+                    for (int j = i; j < storedIngredients.Length - 1; j++)
+                    {
+                        storedIngredients[j] = storedIngredients[j + 1];
+                        if (storedIngredients[j] != null)
+                        {
+                            // Animate the ingredient dropping down
+                            Vector3 newPosition = GetStackPosition(j);
+                            storedIngredients[j].transform.DOMove(newPosition, 0.2f).SetEase(Ease.OutQuad);
+                        }
+                    }
+                    storedIngredients[storedIngredients.Length - 1] = null;
+                    
                     Debug.Log($"[RTCookInputContainer] Cook took ingredient from slot {i}. Remaining: {StoredCount}/{SlotCount}");
                     return ingredient;
                 }
@@ -309,7 +340,7 @@ namespace RestaurantTycoon
             if (slotIndex < 0) return false;
 
             storedIngredients[slotIndex] = ingredient;
-            Transform slot = inputSlots[slotIndex];
+            Vector3 targetPosition = GetStackPosition(slotIndex);
 
             Vector3 savedScale = ingredient.transform.lossyScale;
             DOTween.Kill(ingredient.transform, true);
@@ -317,12 +348,13 @@ namespace RestaurantTycoon
             ingredient.transform.localScale = savedScale;
 
             ingredient.transform
-                .DOJump(slot.position, dropJumpHeight, 1, dropDuration)
+                .DOJump(targetPosition, dropJumpHeight, 1, dropDuration)
                 .SetEase(Ease.OutQuad)
                 .OnComplete(() =>
                 {
-                    ingredient.transform.position = slot.position;
-                    ingredient.transform.rotation = slot.rotation;
+                    ingredient.transform.position = targetPosition;
+                    if (slotReference != null)
+                        ingredient.transform.rotation = slotReference.rotation;
                 });
 
             Debug.Log($"[RTCookInputContainer] Porter delivered ingredient to slot {slotIndex}. Stored: {StoredCount}/{SlotCount}");

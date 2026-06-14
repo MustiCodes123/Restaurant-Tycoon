@@ -9,16 +9,28 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -5.3194737
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.06508075
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 24.362743
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
       propertyPath: m_LocalRotation.w
@@ -59,5 +71,29 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5807582799087875979}
   m_SourcePrefab: {fileID: 100100000, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
+--- !u!1 &2435991975441248107 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: efdfd517317f24038b161cc606aadf4f, type: 3}
+  m_PrefabInstance: {fileID: 3246822766131647034}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5807582799087875979
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2435991975441248107}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf330904f732951468418742892fd72a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTIngredient
+  ingredientType: {fileID: 11400000, guid: 4f08b6dd520ca7b41a0759ed75b0cc2b, type: 2}
+  spawnPopScale: 1.2
+  spawnPopDuration: 0.3
+  spawnPopEase: 27
