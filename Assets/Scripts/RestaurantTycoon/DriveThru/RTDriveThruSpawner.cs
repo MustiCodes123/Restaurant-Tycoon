@@ -75,6 +75,8 @@ namespace RestaurantTycoon
         [SerializeField] private List<RTCustomerCounter> allCounters = new List<RTCustomerCounter>();
         [SerializeField] private int minPayment = 40;
         [SerializeField] private int maxPayment = 80;
+        [Tooltip("World-space point where money is dropped when a car is served.")]
+        [SerializeField] private Transform moneyDropPoint;
 
         // ── Runtime ───────────────────────────────────────────────────────────
 
@@ -235,7 +237,7 @@ namespace RestaurantTycoon
             }
 
             activeCars.Add(car);
-            car.Initialize(itemType, payment, approachPath, departPath);
+            car.Initialize(itemType, payment, approachPath, departPath, moneyDropPoint);
 
             Debug.Log($"[RTDriveThruSpawner] Spawned car ordering '{itemType.displayName}' for ${payment}.");
         }

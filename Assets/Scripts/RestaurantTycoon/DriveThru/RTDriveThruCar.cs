@@ -30,8 +30,9 @@ namespace RestaurantTycoon
 
         [Header("Money")]
         [SerializeField] private GameObject moneyDropPrefab;
-        [SerializeField] private float moneyDropYOffset = 0.5f;
-        [SerializeField] private float moneyDropXOffset = 0f;
+
+        // Set at runtime by RTDriveThruSpawner
+        private Transform moneyDropPoint;
 
         [Header("Player Detection")]
         [SerializeField] private LayerMask playerLayer;
@@ -107,12 +108,13 @@ namespace RestaurantTycoon
         /// <param name="approach">Waypoints from spawn to stop (including stop as last element).</param>
         /// <param name="depart">Waypoints from stop to destroy (including destroy as last element).</param>
         public void Initialize(RTIngredientType itemType, int payment,
-                               Vector3[] approach, Vector3[] depart)
+                               Vector3[] approach, Vector3[] depart, Transform dropPoint = null)
         {
             orderedItemType = itemType;
             orderPayment    = payment;
             approachWaypoints = approach;
             departWaypoints   = depart;
+            moneyDropPoint    = dropPoint;
 
             stopPosition    = approach[approach.Length - 1];
             destroyPosition = depart[depart.Length - 1];
@@ -332,7 +334,7 @@ namespace RestaurantTycoon
                 return;
             }
 
-            Vector3 spawnPos = transform.position + new Vector3(moneyDropXOffset, moneyDropYOffset, 0f);
+            Vector3 spawnPos = moneyDropPoint != null ? moneyDropPoint.position : transform.position;
             GameObject dropGO = Instantiate(moneyDropPrefab, spawnPos, Quaternion.identity);
             MoneyDrop drop = dropGO.GetComponent<MoneyDrop>();
             drop?.Initialize(orderPayment);

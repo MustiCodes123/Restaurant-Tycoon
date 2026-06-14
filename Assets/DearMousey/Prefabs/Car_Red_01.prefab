@@ -1220,7 +1220,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTDriveThruCar
   moneyDropPrefab: {fileID: 2664473707261226822, guid: 7b5785e5e1809fa4eacc1d0fb492315c, type: 3}
   moneyDropYOffset: 0.5
-  moneyDropXOffset: 0
+  moneyDropXOffset: 11.56
   playerLayer:
     serializedVersion: 2
     m_Bits: 8
