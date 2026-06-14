@@ -30,6 +30,9 @@ namespace RestaurantTycoon
         [SerializeField] private float dropJumpHeight = 0.5f;
         [SerializeField] private float dropDuration = 0.25f;
 
+        [Header("Cooking Animation")]
+        [SerializeField] private GameObject shakeTarget;
+
         private RTIngredient[] storedIngredients;
         private bool playerInRange = false;
         private RTPlayerCarryController playerCarryController;
@@ -38,6 +41,8 @@ namespace RestaurantTycoon
         private Tween cookingShakeTween;
         private Vector3 originalLocalPosition;
         private Quaternion originalLocalRotation;
+        private Vector3 shakeTargetOriginalPosition;
+        private Quaternion shakeTargetOriginalRotation;
 
         /// <summary>
         /// Fired when a new ingredient is added to the container.
@@ -70,6 +75,13 @@ namespace RestaurantTycoon
             storedIngredients = new RTIngredient[inputSlots.Count];
             originalLocalPosition = transform.localPosition;
             originalLocalRotation = transform.localRotation;
+
+            // Store original position and rotation for shake target if assigned
+            if (shakeTarget != null)
+            {
+                shakeTargetOriginalPosition = shakeTarget.transform.localPosition;
+                shakeTargetOriginalRotation = shakeTarget.transform.localRotation;
+            }
 
             // Find player
             GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -247,9 +259,15 @@ namespace RestaurantTycoon
         public void StartCookingAnimation()
         {
             cookingShakeTween?.Kill();
-            transform.localPosition = originalLocalPosition;
-            transform.localRotation = originalLocalRotation;
-            cookingShakeTween = transform
+
+            // Use shake target if assigned, otherwise use the container itself
+            Transform targetTransform = shakeTarget != null ? shakeTarget.transform : transform;
+            Vector3 targetOriginalPosition = shakeTarget != null ? shakeTargetOriginalPosition : originalLocalPosition;
+            Quaternion targetOriginalRotation = shakeTarget != null ? shakeTargetOriginalRotation : originalLocalRotation;
+
+            targetTransform.localPosition = targetOriginalPosition;
+            targetTransform.localRotation = targetOriginalRotation;
+            cookingShakeTween = targetTransform
                 .DOShakeRotation(0.6f, new Vector3(0f, 0f, 3f), 15, 90f, false)
                 .SetLoops(-1, LoopType.Restart)
                 .SetLink(gameObject);
@@ -260,8 +278,18 @@ namespace RestaurantTycoon
         {
             cookingShakeTween?.Kill();
             cookingShakeTween = null;
-            transform.localPosition = originalLocalPosition;
-            transform.localRotation = originalLocalRotation;
+
+            // Reset shake target if assigned, otherwise reset the container itself
+            if (shakeTarget != null)
+            {
+                shakeTarget.transform.localPosition = shakeTargetOriginalPosition;
+                shakeTarget.transform.localRotation = shakeTargetOriginalRotation;
+            }
+            else
+            {
+                transform.localPosition = originalLocalPosition;
+                transform.localRotation = originalLocalRotation;
+            }
         }
 
         #endregion
