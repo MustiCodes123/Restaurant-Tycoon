@@ -34,6 +34,10 @@ namespace RestaurantTycoon
 
         [Header("Cooking Animation")]
         [SerializeField] private GameObject shakeTarget;
+        [Tooltip("Optional. If assigned, its item animations will play/stop alongside the cooking shake animation.")]
+        [SerializeField] private CookingItems cookingItems;
+
+        private bool cookingItemsActive = false;
 
         private const int MAX_SLOTS = 6;
         private RTIngredient[] storedIngredients;
@@ -302,6 +306,13 @@ namespace RestaurantTycoon
                 .DOShakeRotation(0.6f, new Vector3(0f, 0f, 3f), 15, 90f, false)
                 .SetLoops(-1, LoopType.Restart)
                 .SetLink(gameObject);
+
+            // Only trigger CookingItems once, keep it playing across consecutive items
+            if (cookingItems != null/* && !cookingItemsActive*/)
+            {
+                cookingItems.StartCooking();
+                //cookingItemsActive = true;
+            }
         }
 
         /// <summary>Stops the cooking shake and resets the table to its original transform.</summary>
@@ -320,6 +331,13 @@ namespace RestaurantTycoon
             {
                 transform.localPosition = originalLocalPosition;
                 transform.localRotation = originalLocalRotation;
+            }
+
+            // Only end CookingItems once all queued ingredients have been cooked
+            if (cookingItems != null /*&& cookingItemsActive && !HasIngredient*/)
+            {
+                cookingItems.EndCooking();
+                //cookingItemsActive = false;
             }
         }
 
