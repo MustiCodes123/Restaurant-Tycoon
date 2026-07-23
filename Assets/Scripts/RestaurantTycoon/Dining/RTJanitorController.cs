@@ -37,6 +37,10 @@ namespace RestaurantTycoon
         [SerializeField] private Animator animator;
         [Tooltip("Animator bool parameter name for walking.")]
         [SerializeField] private string walkBoolName = "IsWalking";
+        [Tooltip("Animator bool parameter name for lift idle (holding items but not moving).")]
+        [SerializeField] private string liftIdleParam = "IsLiftIdle";
+        [Tooltip("Animator bool parameter name for lift walking (holding items and moving).")]
+        [SerializeField] private string liftWalkParam = "IsLiftWalking";
 
         [Header("Carry")]
         [Tooltip("Point on the janitor where dishes are held visually.")]
@@ -120,6 +124,8 @@ namespace RestaurantTycoon
                 case RTJanitorState.DisposingDishes: HandleDisposing();      break;
                 case RTJanitorState.MovingToIdle:    HandleMovingToIdle();   break;
             }
+
+            UpdateAnimation();
         }
 
         // ── IUpgradeableStaff ──────────────────────────────────────────────────────
@@ -418,6 +424,35 @@ namespace RestaurantTycoon
         {
             if (animator != null)
                 animator.SetBool(walkBoolName, walking);
+        }
+
+        private void UpdateAnimation()
+        {
+            if (animator == null) return;
+
+            if (IsCarryingDishes)
+            {
+                // Determine if moving based on the current state
+                bool isMoving = currentState == RTJanitorState.MovingToTable ||
+                               currentState == RTJanitorState.MovingToBin ||
+                               currentState == RTJanitorState.MovingToIdle;
+
+                if (isMoving)
+                {
+                    animator.SetBool(liftIdleParam, false);
+                    animator.SetBool(liftWalkParam, true);
+                }
+                else
+                {
+                    animator.SetBool(liftIdleParam, true);
+                    animator.SetBool(liftWalkParam, false);
+                }
+            }
+            else
+            {
+                animator.SetBool(liftIdleParam, false);
+                animator.SetBool(liftWalkParam, false);
+            }
         }
 
         #endregion
