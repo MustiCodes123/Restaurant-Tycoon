@@ -112,6 +112,11 @@ namespace RestaurantTycoon
                 {
                     animator.SetBool("IsWalking", isMoving);
                 }
+                else
+                {
+                    // When carrying, always disable regular walking so lift animations take precedence
+                    animator.SetBool("IsWalking", false);
+                }
             }
 
             if (carryController != null)

@@ -35,6 +35,9 @@ namespace RestaurantTycoon
         private HashSet<Transform> animatingItems = new HashSet<Transform>();
         private bool isMoving = false;
 
+        /// <summary>Fired whenever the carried stack changes (pickup or removal).</summary>
+        public event System.Action OnCarryChanged;
+
         public int CarriedCount => carriedItems.Count;
         public bool IsCarrying => carriedItems.Count > 0;
         public bool CanCarryMore
@@ -140,7 +143,9 @@ namespace RestaurantTycoon
             // Complete any active tweens so item reaches its intended final scale/position
             DOTween.Kill(itemTransform, true);
 
-            // Parent immediately so item moves with the player during animation
+            // Parent immediately so item moves with the player during animation.
+            // worldPositionStays=true (default) adjusts localScale so the item's
+            // world-space appearance is preserved — do NOT override it afterwards.
             itemTransform.SetParent(carryBasePoint);
 
             // Mark as animating so LateUpdate doesn't interfere
@@ -166,6 +171,7 @@ namespace RestaurantTycoon
             }
 
             Debug.Log($"[RTPlayerCarryController] Picked up {item.CarryType}. Stack: {carriedItems.Count}/{maxCarryCount}");
+            OnCarryChanged?.Invoke();
             return true;
         }
 
@@ -326,6 +332,7 @@ namespace RestaurantTycoon
             carriedItems.Clear();
 
             Debug.Log($"[RTPlayerCarryController] Disposed all {count} items");
+            OnCarryChanged?.Invoke();
             return count;
         }
 

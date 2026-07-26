@@ -9,7 +9,7 @@ namespace RestaurantTycoon
     /// takes one, plays cooking animation with RadialProgressUI, then produces
     /// a finished item that bounces to the output container.
     /// </summary>
-    public class RTCook : MonoBehaviour
+    public class RTCook : MonoBehaviour, IUpgradeableStaff
     {
         [Header("References")]
         [SerializeField] private RTCookInputContainer inputContainer;
@@ -46,8 +46,25 @@ namespace RestaurantTycoon
 
         public bool IsCooking => isCooking;
 
+        /// <summary>Reduces the cook time. Called by RTStaffUpgrade when an upgrade is purchased.</summary>
+        public void SetUpgradedDuration(float newDuration)
+        {
+            cookDuration = Mathf.Max(0.1f, newDuration);
+            if (radialProgressUI != null)
+                radialProgressUI.SetFillDuration(cookDuration);
+            Debug.Log($"[RTCook] Cook duration upgraded to {cookDuration}s");
+        }
+
         private void Start()
         {
+            // Lock position and rotation completely
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+                rb.constraints = RigidbodyConstraints.FreezeAll;
+            }
+
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
 
@@ -152,6 +169,7 @@ namespace RestaurantTycoon
 
             // 4. Start cooking animation + radial progress
             SetServing(true);
+            inputContainer.StartCookingAnimation();
 
             if (radialProgressUI != null)
             {
@@ -164,6 +182,7 @@ namespace RestaurantTycoon
 
             // 6. Stop cooking animation + radial progress
             SetServing(false);
+            inputContainer.StopCookingAnimation();
 
             if (radialProgressUI != null)
             {
@@ -216,6 +235,7 @@ namespace RestaurantTycoon
 
             // Register on output container before animation (reserves the slot)
             outputContainer.AddItem(finishedItem);
+            outputContainer.PlayItemReadyAnimation();
 
             // Bounce animate to output slot
             obj.transform.DOJump(targetSlot.position, outputBounceHeight, 1, outputBounceDuration)

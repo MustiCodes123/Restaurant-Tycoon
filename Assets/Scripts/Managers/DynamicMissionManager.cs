@@ -11,7 +11,10 @@ public enum DynamicMissionType
     UnlockTableCleaner,
     UnlockWashroom,
     UnlockCook,
-    UnlockSceneObject
+    UnlockSceneObject,
+    UpgradeStaff,
+    DriveThruOrder,
+    Tutorial
 }
 
 [Serializable]
@@ -418,6 +421,81 @@ public class DynamicMissionManager : MonoBehaviour
     {
         RemoveMission($"UnlockSceneObject_{objectId}");
     }
+
+    // ── Staff Upgrade ─────────────────────────────────────────────────────────
+
+    public void RegisterStaffUpgradeMission(string staffId, string staffName, int targetLevel)
+    {
+        string missionId = $"UpgradeStaff_{staffId}_Lvl{targetLevel}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.UpgradeStaff, $"Upgrade {staffName} to Level {targetLevel}");
+        activeMissions[missionId] = mission;
+        SaveMissions();
+        Log($"Registered staff upgrade mission: {mission.displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteStaffUpgradeMission(string staffId, int completedLevel)
+    {
+        CompleteMission($"UpgradeStaff_{staffId}_Lvl{completedLevel}");
+    }
+
+    public void RemoveStaffUpgradeMission(string staffId, int targetLevel)
+    {
+        RemoveMission($"UpgradeStaff_{staffId}_Lvl{targetLevel}");
+    }
+
+    // ── Drive-Through Orders ───────────────────────────────────────────────────
+
+    public void RegisterDriveThruMission(string carId, string foodName)
+    {
+        string missionId = $"DriveThru_{carId}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.DriveThruOrder,
+            $"Drive-through: {foodName} order waiting!");
+        activeMissions[missionId] = mission;
+        // Intentionally NOT saved to PlayerPrefs — drive-through missions are
+        // transient runtime events that must not persist across sessions.
+        Log($"Registered drive-through mission: {mission.displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteDriveThruMission(string carId)
+    {
+        CompleteMission($"DriveThru_{carId}");
+    }
+
+    public void RemoveDriveThruMission(string carId)
+    {
+        RemoveMission($"DriveThru_{carId}");
+    }
+
+    // ── Tutorial Steps ────────────────────────────────────────────────────────
+
+    public void RegisterTutorialStep(string stepId, string displayText)
+    {
+        string missionId = $"Tutorial_{stepId}";
+        if (activeMissions.ContainsKey(missionId)) return;
+
+        var mission = new DynamicMission(missionId, DynamicMissionType.Tutorial, displayText);
+        activeMissions[missionId] = mission;
+        // Tutorial steps are intentionally NOT saved — they are driven by RTTutorialController
+        // and cleared on completion or when the tutorial finishes.
+        Log($"Registered tutorial step: {displayText}");
+        OnMissionAdded?.Invoke(mission);
+    }
+
+    public void CompleteTutorialStep(string stepId)
+    {
+        CompleteMission($"Tutorial_{stepId}");
+    }
+
+    public void RemoveTutorialStep(string stepId)
+    {
+        RemoveMission($"Tutorial_{stepId}");
+    }
     
     /// <summary>
     /// Gets all active (non-completed) missions
@@ -481,6 +559,10 @@ public class DynamicMissionManager : MonoBehaviour
         {
             foreach (var mission in saveData.missions)
             {
+                // Skip drive-through orders — they are transient runtime events
+                // tied to car instances that no longer exist after a session ends.
+                if (mission.missionType == DynamicMissionType.DriveThruOrder) continue;
+
                 // Only load non-completed missions
                 if (!mission.isCompleted)
                 {

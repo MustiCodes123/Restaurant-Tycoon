@@ -17,6 +17,9 @@ namespace RestaurantTycoon
         [Header("Effects")]
         [SerializeField] private ParticleSystem disposeParticles;
 
+        /// <summary>Fired when the player successfully disposes items in this bin.</summary>
+        public event System.Action OnItemsDisposed;
+
         private Coroutine disposeCoroutine;
 
         private void OnTriggerEnter(Collider other)
@@ -65,6 +68,7 @@ namespace RestaurantTycoon
                     AudioManager.Instance.PlaySFX(SoundEffect.GarbageDrop);
 
                 Debug.Log($"[RTGarbageBin] Disposed {disposed} item(s)");
+                OnItemsDisposed?.Invoke();
             }
 
             disposeCoroutine = null;

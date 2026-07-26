@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d78b747111ce8824baf3a144d6aa7d7b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 379984
+  packageName: 'Bean-Style Kitchen: Animated Food & Workstations'
+  packageVersion: 1.0
+  assetPath: Assets/VIVUGA/Low poly stylized food/Art/Animations/Station Table.controller
+  uploadId: 916100

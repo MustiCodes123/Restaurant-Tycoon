@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 
 namespace RestaurantTycoon
 {
@@ -37,9 +38,25 @@ namespace RestaurantTycoon
         [Tooltip("Random skins assigned to customers")]
         [SerializeField] private List<Material> customerSkins = new List<Material>();
 
+        [Header("Frenzy Mode")]
+        [Tooltip("Player level required before frenzy mode can activate.")]
+        [SerializeField] private int frenzyRequiredLevel = 1;
+        [Tooltip("Seconds after game start before the first frenzy begins.")]
+        [SerializeField] private float frenzyStartDelay = 60f;
+        [Tooltip("How long the frenzy lasts in seconds.")]
+        [SerializeField] private float frenzyDuration = 30f;
+        [Tooltip("Max customers queued per counter during frenzy (matches the 3-slot queue layout).")]
+        [SerializeField] private int frenzyCustomersPerCounter = 3;
+        [Tooltip("UI panel that is shown while frenzy is active.")]
+        [SerializeField] private GameObject frenzyPanel;
+        [Tooltip("Text that displays the remaining frenzy time countdown.")]
+        [SerializeField] private TMP_Text frenzyTimerText;
+
         private List<RTCustomer> activeCustomers = new List<RTCustomer>();
         private bool isSpawning = false;
         private int currentBatchTotal = 0;
+
+        private bool isFrenzy = false;
 
         public int CustomerCount => customerCount;
         public int ActiveCount => activeCustomers.Count;
@@ -69,6 +86,9 @@ namespace RestaurantTycoon
                 if (counter != null)
                     counter.OnItemPlaced += OnItemPlacedOnCounter;
 
+            if (frenzyPanel != null) frenzyPanel.SetActive(false);
+
+            StartCoroutine(FrenzySchedulerLoop());
             StartCoroutine(BatchLoop());
         }
 
@@ -83,11 +103,18 @@ namespace RestaurantTycoon
         {
             while (true)
             {
+                // Suspend while frenzy is running — resume once it ends
+                while (isFrenzy)
+                    yield return new WaitForSeconds(0.5f);
+
                 // Wait until previous batch is fully done
                 while (activeCustomers.Count > 0)
                     yield return new WaitForSeconds(0.5f);
 
                 yield return new WaitForSeconds(batchDelay);
+
+                // Frenzy may have started during batchDelay
+                if (isFrenzy) continue;
 
                 // Spawn batch
                 yield return StartCoroutine(SpawnBatch());
@@ -117,7 +144,8 @@ namespace RestaurantTycoon
             Debug.Log($"[RTCustomerSpawner] Batch spawning complete. Active: {activeCustomers.Count}");
         }
 
-        private void SpawnOneCustomer()
+        // assignedCounter: pass a specific counter (frenzy refill), or null to pick randomly.
+        private void SpawnOneCustomer(RTCustomerCounter assignedCounter = null)
         {
             if (customerPrefab == null)
             {
@@ -125,7 +153,7 @@ namespace RestaurantTycoon
                 return;
             }
 
-            RTCustomerCounter counter = GetRandomAvailableCounter();
+            RTCustomerCounter counter = assignedCounter ?? GetRandomAvailableCounter();
             if (counter == null)
             {
                 Debug.LogError("[RTCustomerSpawner] No available counter to assign!");
@@ -158,6 +186,10 @@ namespace RestaurantTycoon
         {
             activeCustomers.Remove(customer);
             Debug.Log($"[RTCustomerSpawner] Customer exited. Active: {activeCustomers.Count}/{currentBatchTotal}");
+
+            // During frenzy: immediately spawn a replacement at the most underfilled counter
+            if (isFrenzy)
+                TrySpawnFrenzyReplacement();
         }
 
         /// <summary>
@@ -181,6 +213,106 @@ namespace RestaurantTycoon
         {
             customerCount = Mathf.Max(1, count);
         }
+
+        #region Frenzy Mode
+
+        /// <summary>
+        /// Runs forever. Each cycle: waits until active customers drop below the normal
+        /// batch size, then waits frenzyStartDelay, then runs a full frenzy session.
+        /// </summary>
+        private IEnumerator FrenzySchedulerLoop()
+        {
+            while (true)
+            {
+                // Wait until the restaurant is not at full normal capacity
+                while (activeCustomers.Count >= customerCount)
+                    yield return new WaitForSeconds(0.5f);
+
+                // Wait until the level requirement for frenzy is met
+                while (!IsFrenzyLevelMet())
+                    yield return new WaitForSeconds(1f);
+
+                // Customer count dropped below threshold — begin countdown
+                Debug.Log("[RTCustomerSpawner] Frenzy countdown started.");
+                yield return new WaitForSeconds(frenzyStartDelay);
+
+                // Run the frenzy session and wait for it to finish
+                yield return StartCoroutine(RunFrenzy());
+
+                // Small gap before re-arming so the batch loop can stabilise
+                yield return new WaitForSeconds(1f);
+            }
+        }
+
+        private bool IsFrenzyLevelMet()
+        {
+            int level = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+            return level >= frenzyRequiredLevel;
+        }
+
+        private IEnumerator RunFrenzy()
+        {
+            isFrenzy = true;
+            Debug.Log("[RTCustomerSpawner] Frenzy started!");
+
+            if (frenzyPanel != null) frenzyPanel.SetActive(true);
+
+            // Immediately fill every active counter to frenzyCustomersPerCounter
+            FillFrenzyCapacity();
+
+            float remaining = frenzyDuration;
+            while (remaining > 0f)
+            {
+                remaining -= Time.deltaTime;
+                if (frenzyTimerText != null)
+                    frenzyTimerText.text = Mathf.CeilToInt(Mathf.Max(0f, remaining)).ToString();
+                yield return null;
+            }
+
+            EndFrenzy();
+        }
+
+        private void FillFrenzyCapacity()
+        {
+            foreach (var counter in targetCounters)
+            {
+                if (counter == null || !counter.gameObject.activeInHierarchy) continue;
+                int toSpawn = Mathf.Max(0, frenzyCustomersPerCounter - counter.QueueCount);
+                for (int i = 0; i < toSpawn; i++)
+                    SpawnOneCustomer(counter);
+            }
+        }
+
+        private void TrySpawnFrenzyReplacement()
+        {
+            RTCustomerCounter counter = GetFrenzyAvailableCounter();
+            if (counter != null)
+                SpawnOneCustomer(counter);
+        }
+
+        /// <summary>Returns the active counter with the fewest customers that is still below the frenzy cap.</summary>
+        private RTCustomerCounter GetFrenzyAvailableCounter()
+        {
+            var available = targetCounters.FindAll(c =>
+                c != null &&
+                c.gameObject.activeInHierarchy &&
+                c.CanAcceptCustomer &&
+                c.QueueCount < frenzyCustomersPerCounter);
+
+            if (available.Count == 0) return null;
+            available.Sort((a, b) => a.QueueCount.CompareTo(b.QueueCount));
+            return available[0];
+        }
+
+        private void EndFrenzy()
+        {
+            isFrenzy = false;
+            if (frenzyPanel != null) frenzyPanel.SetActive(false);
+            if (frenzyTimerText != null) frenzyTimerText.text = string.Empty;
+            Debug.Log("[RTCustomerSpawner] Frenzy ended. Returning to normal batch mode.");
+        }
+
+        #endregion
 
         private void OnDrawGizmos()
         {

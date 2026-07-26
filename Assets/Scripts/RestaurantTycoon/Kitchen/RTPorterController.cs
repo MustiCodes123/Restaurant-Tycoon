@@ -21,7 +21,7 @@ namespace RestaurantTycoon
     /// and delivers it to an RTCookInputContainer.
     /// Idles at the nearest idle spot when the source container is empty or the input is full.
     /// </summary>
-    public class RTPorterController : MonoBehaviour
+    public class RTPorterController : MonoBehaviour, IUpgradeableStaff
     {
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 3.5f;
@@ -36,10 +36,18 @@ namespace RestaurantTycoon
         [SerializeField] private Animator animator;
         [Tooltip("Animator bool parameter name for walking.")]
         [SerializeField] private string walkBoolName = "IsWalking";
+        [Tooltip("Animator bool parameter name for lift idle (holding items but not moving).")]
+        [SerializeField] private string liftIdleParam = "IsLiftIdle";
+        [Tooltip("Animator bool parameter name for lift walking (holding items and moving).")]
+        [SerializeField] private string liftWalkParam = "IsLiftWalking";
 
         [Header("Carry")]
         [Tooltip("Point on the porter where the held ingredient is shown.")]
         [SerializeField] private Transform carryPoint;
+        [Tooltip("Maximum number of ingredients the porter carries per trip.")]
+        [SerializeField] private int carryCapacity = 1;
+        [Tooltip("Local-space offset between each stacked ingredient.")]
+        [SerializeField] private Vector3 carryStackOffset = new Vector3(0f, 0.1f, 0f);
 
         [Header("References")]
         [Tooltip("The ingredient container this porter sources ingredients from.")]
@@ -54,12 +62,37 @@ namespace RestaurantTycoon
         // ── Runtime ───────────────────────────────────────────────────────────
         private NavMeshAgent agent;
         private RTPorterState currentState = RTPorterState.Idle;
-        private RTIngredient heldIngredient;
+        private List<RTIngredient> heldIngredients = new List<RTIngredient>();
         private float searchTimer;
         private float actionTimer;
 
         public RTPorterState State => currentState;
-        public bool IsCarryingIngredient => heldIngredient != null;
+        public bool IsCarryingIngredient => heldIngredients.Count > 0;
+
+        /// <summary>Reduces collect and deliver delays.</summary>
+        public void SetUpgradedDuration(float newDuration)
+        {
+            float clamped = Mathf.Max(0.1f, newDuration);
+            collectDelay = clamped;
+            deliverDelay = clamped;
+            Debug.Log($"[RTPorterController] Porter delays upgraded to {clamped}s");
+        }
+
+        /// <summary>Increases movement speed.</summary>
+        public void SetUpgradedSpeed(float newSpeed)
+        {
+            float clamped = Mathf.Max(0.5f, newSpeed);
+            moveSpeed = clamped;
+            if (agent != null) agent.speed = clamped;
+            Debug.Log($"[RTPorterController] Porter speed upgraded to {clamped}");
+        }
+
+        /// <summary>Sets how many ingredients the porter carries per trip.</summary>
+        public void SetCarryCapacity(int capacity)
+        {
+            carryCapacity = Mathf.Max(1, capacity);
+            Debug.Log($"[RTPorterController] Porter carry capacity upgraded to {carryCapacity}");
+        }
 
         #region Unity
 
@@ -167,6 +200,8 @@ namespace RestaurantTycoon
                 case RTPorterState.DeliveringIngredient:        HandleDelivering();             break;
                 case RTPorterState.MovingToIdle:                HandleMovingToIdle();           break;
             }
+
+            UpdateAnimation();
         }
 
         #endregion
@@ -175,9 +210,9 @@ namespace RestaurantTycoon
 
         private void HandleIdle()
         {
-            // If holding an ingredient from an aborted delivery, re-attempt as soon
-            // as the input container has space — don't collect a second ingredient.
-            if (heldIngredient != null)
+            // If holding ingredients from an aborted delivery, re-attempt as soon
+            // as the input container has space — don't collect more.
+            if (heldIngredients.Count > 0)
             {
                 if (inputContainer != null && !inputContainer.IsFull)
                 {
@@ -217,10 +252,30 @@ namespace RestaurantTycoon
         {
             actionTimer += Time.deltaTime;
             if (actionTimer < collectDelay) return;
+            actionTimer = 0f;
 
+            int countBefore = heldIngredients.Count;
             TakeIngredientFromContainer();
+            bool pickedUp = heldIngredients.Count > countBefore;
 
-            if (heldIngredient != null)
+            // Stay at the container if: a pickup just happened AND we haven't hit
+            // capacity yet AND the source still has items to take.
+            // (We deliberately don't block on inputContainer.IsFull here —
+            // that's only checked inside TakeIngredientFromContainer itself.)
+            bool canTakeMore = pickedUp &&
+                               heldIngredients.Count < carryCapacity &&
+                               ingredientContainer != null &&
+                               ingredientContainer.StockedCount > 0;
+
+            Debug.Log($"[RTPorterController] Collect tick: held={heldIngredients.Count}/{carryCapacity} " +
+                      $"pickedUp={pickedUp} sourceStock={ingredientContainer?.StockedCount} " +
+                      $"inputFull={inputContainer?.IsFull} canTakeMore={canTakeMore}");
+
+            if (canTakeMore)
+                return; // wait another collectDelay tick at the container
+
+            // Finished collecting — head to the input container or idle.
+            if (heldIngredients.Count > 0)
             {
                 MoveTo(inputContainer.transform.position);
                 currentState = RTPorterState.MovingToInputContainer;
@@ -228,7 +283,6 @@ namespace RestaurantTycoon
             }
             else
             {
-                // Nothing available yet
                 GoToNearestIdleSpot();
             }
         }
@@ -267,9 +321,9 @@ namespace RestaurantTycoon
 
         private void HandleMovingToIdle()
         {
-            // Re-deliver a held ingredient as soon as the input has space,
+            // Re-deliver held ingredients as soon as the input has space,
             // rather than finishing the idle walk first.
-            if (heldIngredient != null && inputContainer != null && !inputContainer.IsFull)
+            if (heldIngredients.Count > 0 && inputContainer != null && !inputContainer.IsFull)
             {
                 MoveTo(inputContainer.transform.position);
                 currentState = RTPorterState.MovingToInputContainer;
@@ -322,33 +376,41 @@ namespace RestaurantTycoon
         private void TakeIngredientFromContainer()
         {
             if (ingredientContainer == null || ingredientContainer.StockedCount == 0) return;
+            if (inputContainer == null || inputContainer.IsFull) return;
+            if (heldIngredients.Count >= carryCapacity) return;
 
             RTIngredient ingredient = ingredientContainer.TakeTopIngredient();
             if (ingredient == null) return;
 
-            heldIngredient = ingredient;
-
-            // Parent to carry point and animate into hand
-            DOTween.Kill(heldIngredient.transform, true);
-            heldIngredient.transform.SetParent(carryPoint);
-
-            heldIngredient.transform
-                .DOLocalMove(Vector3.zero, collectDelay * 0.5f)
+            DOTween.Kill(ingredient.transform, true);
+            ingredient.transform.SetParent(carryPoint);
+            ingredient.transform
+                .DOLocalMove(carryStackOffset * heldIngredients.Count, collectDelay * 0.5f)
                 .SetEase(Ease.OutQuad);
-            heldIngredient.transform
-                .DOLocalRotate(Vector3.zero, collectDelay * 0.5f);
+            ingredient.transform.DOLocalRotate(Vector3.zero, collectDelay * 0.5f);
+            heldIngredients.Add(ingredient);
         }
 
         private void DeliverIngredientToInput()
         {
-            if (heldIngredient == null || inputContainer == null) return;
+            if (heldIngredients.Count == 0 || inputContainer == null) return;
 
-            // Unparent before dropping into input container
-            DOTween.Kill(heldIngredient.transform, true);
-            heldIngredient.transform.SetParent(null);
+            var toDeliver = new List<RTIngredient>(heldIngredients);
+            heldIngredients.Clear();
 
-            inputContainer.ReceiveIngredient(heldIngredient);
-            heldIngredient = null;
+            foreach (var ingredient in toDeliver)
+            {
+                if (ingredient == null) continue;
+                if (inputContainer.IsFull)
+                {
+                    // Container filled up mid-delivery — hold the rest for next attempt.
+                    heldIngredients.Add(ingredient);
+                    continue;
+                }
+                DOTween.Kill(ingredient.transform, true);
+                ingredient.transform.SetParent(null);
+                inputContainer.ReceiveIngredient(ingredient);
+            }
         }
 
         private void GoToNearestIdleSpot()
@@ -423,6 +485,36 @@ namespace RestaurantTycoon
         {
             if (animator != null)
                 animator.SetBool(walkBoolName, walking);
+        }
+
+        private void UpdateAnimation()
+        {
+            if (animator == null) return;
+
+            if (IsCarryingIngredient)
+            {
+                // Determine if moving based on the current state
+                bool isMoving = currentState == RTPorterState.MovingToIngredientContainer ||
+                               currentState == RTPorterState.MovingToInputContainer ||
+                               currentState == RTPorterState.MovingToIdle ||
+                               currentState == RTPorterState.CollectingIngredient;
+
+                if (isMoving)
+                {
+                    animator.SetBool(liftIdleParam, false);
+                    animator.SetBool(liftWalkParam, true);
+                }
+                else
+                {
+                    animator.SetBool(liftIdleParam, true);
+                    animator.SetBool(liftWalkParam, false);
+                }
+            }
+            else
+            {
+                animator.SetBool(liftIdleParam, false);
+                animator.SetBool(liftWalkParam, false);
+            }
         }
 
         #endregion

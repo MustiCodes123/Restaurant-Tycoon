@@ -31,6 +31,9 @@ namespace RestaurantTycoon
 
         private bool isBeingServiced = false;
 
+        /// <summary>Fired when the player successfully completes a cook cycle.</summary>
+        public event System.Action OnCookingCompleted;
+
         /// <summary>
         /// True when there's an ingredient to cook and room in the output.
         /// RTPlayerController checks this each frame (same pattern as RTCashier.CanServe).
@@ -85,6 +88,8 @@ namespace RestaurantTycoon
 
             // Spawn finished item at cook point
             SpawnFinishedItem();
+
+            OnCookingCompleted?.Invoke();
         }
 
         private void SpawnFinishedItem()
