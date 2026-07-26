@@ -53,6 +53,8 @@ public class AdsManager : MonoBehaviour
     private Action<Reward> _onRewardEarned;
     private Action         _onRewardedAdClosed;
 
+    public bool IsRewardedAdReady => _rewardedAd != null && _rewardedAd.CanShowAd();
+
     // ── Unity Lifecycle ───────────────────────────────────────────────────────
 
     private void Awake()
@@ -236,7 +238,7 @@ public class AdsManager : MonoBehaviour
     /// <param name="onClosed">Called when the ad closes (reward may or may not have been earned).</param>
     public void ShowRewardedAd(Action<Reward> onRewardEarned, Action onClosed = null)
     {
-        if (_rewardedAd == null || !_rewardedAd.CanShowAd())
+        if (!IsRewardedAdReady)
         {
             LogWarning("Rewarded ad is not ready.");
             LoadRewardedAd();

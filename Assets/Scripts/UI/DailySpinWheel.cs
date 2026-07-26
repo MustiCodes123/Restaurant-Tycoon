@@ -63,6 +63,7 @@ public class DailySpinWheel : MonoBehaviour
     [Header("Reward Popup (optional)")]
     [SerializeField] private GameObject rewardPopupObject;
     [SerializeField] private TextMeshProUGUI rewardPopupText;
+    [SerializeField] private string adUnavailableMessage = "Ad not available yet.";
 
     // ── Cooldown ──────────────────────────────────────────────────────────────
 
@@ -202,11 +203,17 @@ public class DailySpinWheel : MonoBehaviour
         if (AdsManager.Instance == null)
         {
             Debug.LogWarning("[DailySpinWheel] AdsManager not found. Make sure it is in the scene.");
+            ShowRewardPopup(adUnavailableMessage);
             return;
         }
 
-        // Pre-load then show; AdsManager handles the "not ready" case gracefully.
-        AdsManager.Instance.LoadRewardedAd();
+        if (!AdsManager.Instance.IsRewardedAdReady)
+        {
+            ShowRewardPopup(adUnavailableMessage);
+            AdsManager.Instance.LoadRewardedAd();
+            return;
+        }
+
         AdsManager.Instance.ShowRewardedAd(
             onRewardEarned: _ => OnAdRewardGranted(),
             onClosed: null
@@ -303,8 +310,13 @@ public class DailySpinWheel : MonoBehaviour
 
     private void ShowRewardPopup(int amount)
     {
+        ShowRewardPopup($"+${amount}");
+    }
+
+    private void ShowRewardPopup(string message)
+    {
         if (rewardPopupObject == null) return;
-        if (rewardPopupText != null) rewardPopupText.text = $"+${amount}";
+        if (rewardPopupText != null) rewardPopupText.text = message;
         rewardPopupObject.SetActive(true);
     }
 
