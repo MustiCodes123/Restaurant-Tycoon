@@ -13,6 +13,8 @@ namespace RestaurantTycoon
 
         [Header("Animation")]
         [SerializeField] private Animator animator;
+        [SerializeField] private float minWalkingAnimationSpeed = 0.6f;
+        [SerializeField] private float maxWalkingAnimationSpeed = 1.5f;
 
         [Header("Physics")]
         [SerializeField] private CharacterController characterController;
@@ -26,6 +28,7 @@ namespace RestaurantTycoon
 
         private Vector3 velocity;
         private bool isMoving;
+        private float movementInputMagnitude;
 
         // Interaction spots
         private ServiceSpot currentServiceSpot;
@@ -52,6 +55,9 @@ namespace RestaurantTycoon
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
 
+            if (joystick == null)
+                joystick = FindFirstObjectByType<FloatingJoystick>();
+
             if (radialProgressUI == null)
                 radialProgressUI = GetComponentInChildren<RadialProgressUI>();
 
@@ -73,11 +79,18 @@ namespace RestaurantTycoon
 
         private void HandleMovement()
         {
+            if (joystick == null || characterController == null)
+            {
+                movementInputMagnitude = 0f;
+                isMoving = false;
+                return;
+            }
+
             float horizontal = joystick.Horizontal;
             float vertical = joystick.Vertical;
 
-            float inputMagnitude = Mathf.Clamp01(new Vector2(horizontal, vertical).magnitude);
-            isMoving = inputMagnitude > movementDeadzone;
+            movementInputMagnitude = Mathf.Clamp01(new Vector2(horizontal, vertical).magnitude);
+            isMoving = movementInputMagnitude > movementDeadzone;
 
             if (isMoving)
             {
@@ -91,7 +104,7 @@ namespace RestaurantTycoon
                 camRight.Normalize();
 
                 Vector3 moveDirection = (camForward * vertical + camRight * horizontal).normalized;
-                Vector3 movement = moveDirection * moveSpeed * inputMagnitude * Time.deltaTime;
+                Vector3 movement = moveDirection * moveSpeed * movementInputMagnitude * Time.deltaTime;
                 characterController.Move(movement);
 
                 if (moveDirection != Vector3.zero)
@@ -111,11 +124,13 @@ namespace RestaurantTycoon
                 if (!isCarrying)
                 {
                     animator.SetBool("IsWalking", isMoving);
+                    animator.speed = isMoving ? GetWalkingAnimationSpeed() : 1f;
                 }
                 else
                 {
                     // When carrying, always disable regular walking so lift animations take precedence
                     animator.SetBool("IsWalking", false);
+                    animator.speed = 1f;
                 }
             }
 
@@ -125,8 +140,17 @@ namespace RestaurantTycoon
             }
         }
 
+        private float GetWalkingAnimationSpeed()
+        {
+            float normalizedInput = Mathf.InverseLerp(movementDeadzone, 1f, movementInputMagnitude);
+            return Mathf.Lerp(minWalkingAnimationSpeed, maxWalkingAnimationSpeed, normalizedInput);
+        }
+
         private void ApplyGravity()
         {
+            if (characterController == null)
+                return;
+
             if (characterController.isGrounded && velocity.y < 0)
             {
                 velocity.y = -2f;
