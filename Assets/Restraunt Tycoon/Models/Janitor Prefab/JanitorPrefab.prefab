@@ -60,7 +60,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -5.76996, y: 0.057119202, z: 12.658693}
-  m_LocalScale: {x: 1.2, y: 1.2, z: 1.2}
+  m_LocalScale: {x: 1.5600001, y: 1.5600001, z: 1.5600001}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4101104967447944860}
@@ -131,6 +131,8 @@ MonoBehaviour:
   maxTablesPerTrip: 1
   animator: {fileID: 7782435716042880506}
   walkBoolName: IsWalking
+  liftIdleParam: IsLiftIdle
+  liftWalkParam: IsLiftWalking
   carryPoint: {fileID: 3912469915841235144}
   carryStackOffset: {x: 0, y: 0.12, z: 0}
   diningArea: {fileID: 0}
