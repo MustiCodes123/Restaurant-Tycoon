@@ -33,6 +33,7 @@ namespace RestaurantTycoon
         // Single unified stack
         private List<IRTCarryable> carriedItems = new List<IRTCarryable>();
         private HashSet<Transform> animatingItems = new HashSet<Transform>();
+        private Dictionary<Transform, Vector3> carriedWorldScales = new Dictionary<Transform, Vector3>();
         private bool isMoving = false;
 
         /// <summary>Fired whenever the carried stack changes (pickup or removal).</summary>
@@ -88,6 +89,8 @@ namespace RestaurantTycoon
             {
                 if (carriedItems[i]?.GameObject == null) continue;
                 Transform t = carriedItems[i].GameObject.transform;
+                if (carriedWorldScales.TryGetValue(t, out Vector3 targetWorldScale))
+                    ApplyWorldScale(t, targetWorldScale);
                 if (animatingItems.Contains(t)) continue;
                 t.localPosition = carryOffset * i;
                 t.localRotation = Quaternion.identity;
@@ -142,11 +145,12 @@ namespace RestaurantTycoon
 
             // Complete any active tweens so item reaches its intended final scale/position
             DOTween.Kill(itemTransform, true);
+            Vector3 targetWorldScale = itemTransform.lossyScale;
 
-            // Parent immediately so item moves with the player during animation.
-            // worldPositionStays=true (default) adjusts localScale so the item's
-            // world-space appearance is preserved — do NOT override it afterwards.
+            // Parent immediately, then compensate scale against the carry point.
             itemTransform.SetParent(carryBasePoint);
+            carriedWorldScales[itemTransform] = targetWorldScale;
+            ApplyWorldScale(itemTransform, targetWorldScale);
 
             // Mark as animating so LateUpdate doesn't interfere
             animatingItems.Add(itemTransform);
@@ -158,6 +162,7 @@ namespace RestaurantTycoon
             {
                 itemTransform.localPosition = localTarget;
                 itemTransform.localRotation = Quaternion.identity;
+                ApplyWorldScale(itemTransform, targetWorldScale);
                 animatingItems.Remove(itemTransform);
             });
             pickupSequence.OnKill(() =>
@@ -220,6 +225,7 @@ namespace RestaurantTycoon
                 IRTCarryable item = carriedItems[i];
                 carriedItems.RemoveAt(i);
                 animatingItems.Remove(item.GameObject.transform);
+                carriedWorldScales.Remove(item.GameObject.transform);
                 item.OnDropped();
 
                 // If removal left a gap in the middle or bottom, shift remaining items down.
@@ -260,6 +266,7 @@ namespace RestaurantTycoon
                 IRTCarryable item = carriedItems[i];
                 carriedItems.RemoveAt(i);
                 animatingItems.Remove(item.GameObject.transform);
+                carriedWorldScales.Remove(item.GameObject.transform);
                 item.OnDropped();
 
                 if (i < carriedItems.Count)
@@ -282,6 +289,7 @@ namespace RestaurantTycoon
             IRTCarryable topItem = carriedItems[topIndex];
             carriedItems.RemoveAt(topIndex);
             animatingItems.Remove(topItem.GameObject.transform);
+            carriedWorldScales.Remove(topItem.GameObject.transform);
             topItem.OnDropped();
 
             Debug.Log($"[RTPlayerCarryController] Dropped top item ({topItem.CarryType}). Stack: {carriedItems.Count}/{maxCarryCount}");
@@ -327,6 +335,7 @@ namespace RestaurantTycoon
             for (int i = carriedItems.Count - 1; i >= 0; i--)
             {
                 animatingItems.Remove(carriedItems[i].GameObject.transform);
+                carriedWorldScales.Remove(carriedItems[i].GameObject.transform);
                 carriedItems[i].OnDisposed();
             }
             carriedItems.Clear();
@@ -347,6 +356,7 @@ namespace RestaurantTycoon
                 if (carriedItems[i].CarryType == type)
                 {
                     animatingItems.Remove(carriedItems[i].GameObject.transform);
+                    carriedWorldScales.Remove(carriedItems[i].GameObject.transform);
                     carriedItems[i].OnDisposed();
                     carriedItems.RemoveAt(i);
                     count++;
@@ -370,11 +380,41 @@ namespace RestaurantTycoon
             {
                 Vector3 localTarget = carryOffset * i;
                 GameObject obj = carriedItems[i].GameObject;
-                if (obj.transform.parent != carryBasePoint)
-                    obj.transform.SetParent(carryBasePoint);
-                obj.transform.DOLocalMove(localTarget, 0.15f);
-                obj.transform.DOLocalRotate(Vector3.zero, 0.15f);
+                Transform itemTransform = obj.transform;
+                if (!carriedWorldScales.TryGetValue(itemTransform, out Vector3 targetWorldScale))
+                    targetWorldScale = itemTransform.lossyScale;
+
+                if (itemTransform.parent != carryBasePoint)
+                    itemTransform.SetParent(carryBasePoint);
+
+                carriedWorldScales[itemTransform] = targetWorldScale;
+                ApplyWorldScale(itemTransform, targetWorldScale);
+                itemTransform.DOLocalMove(localTarget, 0.15f);
+                itemTransform.DOLocalRotate(Vector3.zero, 0.15f);
             }
+        }
+
+        private void ApplyWorldScale(Transform target, Vector3 worldScale)
+        {
+            if (target == null)
+                return;
+
+            if (target.parent == null)
+            {
+                target.localScale = worldScale;
+                return;
+            }
+
+            Vector3 parentScale = target.parent.lossyScale;
+            target.localScale = new Vector3(
+                SafeDivide(worldScale.x, parentScale.x),
+                SafeDivide(worldScale.y, parentScale.y),
+                SafeDivide(worldScale.z, parentScale.z));
+        }
+
+        private float SafeDivide(float value, float divisor)
+        {
+            return Mathf.Abs(divisor) > 0.0001f ? value / divisor : value;
         }
     }
 }

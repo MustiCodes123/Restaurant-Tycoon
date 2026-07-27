@@ -142,14 +142,19 @@ namespace RestaurantTycoon
 
         public bool AreAllMissionsCompleted()
         {
-            if (activeMissionUIs.Count == 0) return false;
-
             foreach (var missionUI in activeMissionUIs)
             {
-                if (!missionUI.IsCompleted)
+                if (missionUI != null && !missionUI.IsCompleted)
                     return false;
             }
-            return true;
+
+            foreach (var dynamicMissionUI in activeDynamicMissionUIs)
+            {
+                if (dynamicMissionUI != null && !dynamicMissionUI.IsCompleted)
+                    return false;
+            }
+
+            return activeMissionUIs.Count > 0 || activeDynamicMissionUIs.Count > 0;
         }
 
         private void OnMissionUIRemoved(RTMissionUI missionUI)
@@ -176,6 +181,8 @@ namespace RestaurantTycoon
                 if (ui != null && ui.MissionId == mission.missionId)
                 {
                     ui.MarkCompleted();
+                    if (RTLevelManager.Instance != null)
+                        RTLevelManager.Instance.CheckMissionProgress();
                     return;
                 }
             }

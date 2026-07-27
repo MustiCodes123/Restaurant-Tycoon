@@ -132,21 +132,25 @@ public class MoneyDrop : MonoBehaviour
     
     private void AddMoneyAndDestroy()
     {
-        // Add money to currency manager
-        if (CurrencyManager.Instance != null)
-        {
-            CurrencyManager.Instance.AddMoney(moneyAmount);
-        }
-        
-        // Register with RT level manager first (restaurant tycoon scenes)
+        // Register with RT level manager first (restaurant tycoon scenes).
+        // RTLevelManager adds wallet money and mission progress, so avoid adding
+        // to CurrencyManager here as well.
         if (RestaurantTycoon.RTLevelManager.Instance != null)
         {
             RestaurantTycoon.RTLevelManager.Instance.RegisterMoneyEarned(moneyAmount);
         }
         // Fallback to generic LevelManager (other scenes)
-        else if (LevelManager.Instance != null)
+        else
         {
-            LevelManager.Instance.RegisterMoneyEarned(moneyAmount);
+            if (CurrencyManager.Instance != null)
+            {
+                CurrencyManager.Instance.AddMoney(moneyAmount);
+            }
+
+            if (LevelManager.Instance != null)
+            {
+                LevelManager.Instance.RegisterMoneyEarned(moneyAmount);
+            }
         }
         
         Destroy(gameObject);

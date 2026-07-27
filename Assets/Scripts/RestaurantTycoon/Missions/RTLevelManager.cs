@@ -160,6 +160,14 @@ namespace RestaurantTycoon
             }
         }
 
+        /// <summary>
+        /// Re-checks mission completion after non-money mission state changes.
+        /// </summary>
+        public void CheckMissionProgress()
+        {
+            UpdateMissionProgress();
+        }
+
         private void CompleteLevel()
         {
             if (isCompletingLevel) return;
