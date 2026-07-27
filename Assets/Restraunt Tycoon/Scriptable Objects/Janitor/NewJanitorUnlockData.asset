@@ -17,4 +17,4 @@ MonoBehaviour:
   janitorName: Table Cleaner
   description: 
   janitorPrefab: {fileID: 6855225599557159516, guid: dcb43c8a4b181294cb2ae3fa275db639, type: 3}
-  moveSpeed: 0.5
+  moveSpeed: 1

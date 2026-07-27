@@ -17,4 +17,4 @@ MonoBehaviour:
   janitorName: Janitor
   description: 
   janitorPrefab: {fileID: 5916219579050909098, guid: 55bfb8115b919af469a7bfdacb295143, type: 3}
-  moveSpeed: 0.2
+  moveSpeed: 0.1

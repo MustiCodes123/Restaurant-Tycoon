@@ -25,6 +25,12 @@ namespace RestaurantTycoon
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 3.5f;
         [SerializeField] private float arrivalThreshold = 0.6f;
+        [SerializeField] private float stoppingDistance = 0.35f;
+        [SerializeField] private float acceleration = 10f;
+        [SerializeField] private float angularSpeed = 720f;
+        [Tooltip("When the janitor needs to turn this sharply, slow movement so he doesn't slide past the path.")]
+        [SerializeField] private float turnSlowdownAngle = 70f;
+        [SerializeField] private float minimumTurnSpeedFactor = 0.35f;
 
         [Header("Timing")]
         [SerializeField] private float searchInterval = 1f;
@@ -63,6 +69,9 @@ namespace RestaurantTycoon
         private float searchTimer;
         private float actionTimer;
         private int tablesCollectedThisTrip;
+        private float targetAgentSpeed;
+        private bool isInitialized;
+        private Tween faceTween;
 
         public RTJanitorState State => currentState;
         public bool IsCarryingDishes => heldDishes.Count > 0;
@@ -74,12 +83,14 @@ namespace RestaurantTycoon
             agent = GetComponent<NavMeshAgent>();
             if (agent != null)
             {
-                agent.speed = moveSpeed;
-                agent.stoppingDistance = 0.3f;
+                ConfigureAgent(moveSpeed);
             }
 
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
+
+            if (animator != null)
+                animator.applyRootMotion = false;
 
             if (carryPoint == null)
             {
@@ -95,7 +106,8 @@ namespace RestaurantTycoon
             if (diningArea == null)
                 diningArea = FindObjectOfType<RTDiningArea>();
 
-            GoToNearestIdleSpot();
+            if (!isInitialized)
+                GoToNearestIdleSpot();
         }
 
         /// <summary>
@@ -108,13 +120,20 @@ namespace RestaurantTycoon
             diningArea = area;
             garbageBinTransform = binTransform;
             if (spots != null) idleSpots = spots;
-            if (speed > 0f && agent != null) agent.speed = speed;
+            isInitialized = true;
+            if (speed > 0f)
+            {
+                moveSpeed = speed;
+                ConfigureAgent(moveSpeed);
+            }
 
             GoToNearestIdleSpot();
         }
 
         private void Update()
         {
+            UpdateSteering();
+
             switch (currentState)
             {
                 case RTJanitorState.Idle:            HandleIdle();           break;
@@ -144,7 +163,7 @@ namespace RestaurantTycoon
         {
             float clamped = Mathf.Max(0.5f, newSpeed);
             moveSpeed = clamped;
-            if (agent != null) agent.speed = clamped;
+            ConfigureAgent(moveSpeed);
             Debug.Log($"[RTJanitorController] Janitor speed upgraded to {clamped}");
         }
 
@@ -395,14 +414,20 @@ namespace RestaurantTycoon
         private void MoveTo(Vector3 destination)
         {
             if (agent == null) return;
+            faceTween?.Kill();
+            faceTween = null;
             agent.isStopped = false;
+            targetAgentSpeed = moveSpeed;
             agent.SetDestination(destination);
         }
 
         private void StopMoving()
         {
             if (agent != null)
+            {
                 agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+            }
             SetWalking(false);
         }
 
@@ -417,13 +442,65 @@ namespace RestaurantTycoon
             Vector3 dir = targetPos - transform.position;
             dir.y = 0;
             if (dir.sqrMagnitude > 0.001f)
-                transform.DORotateQuaternion(Quaternion.LookRotation(dir), 0.2f);
+            {
+                faceTween?.Kill();
+                faceTween = transform.DORotateQuaternion(Quaternion.LookRotation(dir), 0.2f);
+            }
+        }
+
+        private void ConfigureAgent(float speed)
+        {
+            if (agent == null) return;
+
+            targetAgentSpeed = speed;
+            agent.speed = speed;
+            agent.acceleration = acceleration;
+            agent.angularSpeed = angularSpeed;
+            agent.stoppingDistance = stoppingDistance;
+            agent.autoBraking = true;
+            agent.updateRotation = false;
+        }
+
+        private void UpdateSteering()
+        {
+            if (agent == null || agent.isStopped || !agent.hasPath)
+                return;
+
+            Vector3 desiredVelocity = agent.desiredVelocity;
+            desiredVelocity.y = 0f;
+
+            if (desiredVelocity.sqrMagnitude < 0.001f)
+                return;
+
+            Quaternion targetRotation = Quaternion.LookRotation(desiredVelocity.normalized);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRotation,
+                angularSpeed * Time.deltaTime);
+
+            float turnAngle = Vector3.Angle(transform.forward, desiredVelocity.normalized);
+            float turnT = Mathf.InverseLerp(0f, Mathf.Max(1f, turnSlowdownAngle), turnAngle);
+            float speedFactor = Mathf.Lerp(1f, minimumTurnSpeedFactor, turnT);
+            targetAgentSpeed = moveSpeed * speedFactor;
+            agent.speed = Mathf.MoveTowards(agent.speed, targetAgentSpeed, acceleration * Time.deltaTime);
         }
 
         private void SetWalking(bool walking)
         {
-            if (animator != null)
+            if (animator == null) return;
+
+            if (IsCarryingDishes)
+            {
+                animator.SetBool(walkBoolName, false);
+                animator.SetBool(liftIdleParam, !walking);
+                animator.SetBool(liftWalkParam, walking);
+            }
+            else
+            {
                 animator.SetBool(walkBoolName, walking);
+                animator.SetBool(liftIdleParam, false);
+                animator.SetBool(liftWalkParam, false);
+            }
         }
 
         private void UpdateAnimation()
@@ -439,11 +516,13 @@ namespace RestaurantTycoon
 
                 if (isMoving)
                 {
+                    animator.SetBool(walkBoolName, false);
                     animator.SetBool(liftIdleParam, false);
                     animator.SetBool(liftWalkParam, true);
                 }
                 else
                 {
+                    animator.SetBool(walkBoolName, false);
                     animator.SetBool(liftIdleParam, true);
                     animator.SetBool(liftWalkParam, false);
                 }

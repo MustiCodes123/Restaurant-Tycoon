@@ -18,13 +18,13 @@ MonoBehaviour:
     requiredPlayerLevel: 22
     cost: 50
     newDuration: 0
-    newMoveSpeed: 0.8
+    newMoveSpeed: 1.2
     newCarryCapacity: 2
   - upgradeName: Level 2
     requiredPlayerLevel: 24
     cost: 75
     newDuration: 0
-    newMoveSpeed: 1.2
+    newMoveSpeed: 1.3
     newCarryCapacity: 3
   - upgradeName: Level 3
     requiredPlayerLevel: 35

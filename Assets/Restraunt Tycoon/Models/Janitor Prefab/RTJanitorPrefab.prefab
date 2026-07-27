@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 3451474627677181877}
   - component: {fileID: 8625044896883169291}
   m_Layer: 0
-  m_Name: JanitorPrefab
+  m_Name: RTJanitorPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
