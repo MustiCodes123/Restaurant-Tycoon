@@ -308,6 +308,7 @@ public class LevelPanelUI : MonoBehaviour
         {
             dynamicUI.Setup(mission);
             activeDynamicMissionUIs[mission.missionId] = dynamicUI;
+            DynamicMissionManager.Instance?.NotifyMissionShown(mission.missionId);
             Debug.Log($"[LevelPanelUI] Added dynamic mission UI: {mission.displayText}");
         }
         else
@@ -316,6 +317,7 @@ public class LevelPanelUI : MonoBehaviour
             dynamicUI = missionObj.AddComponent<DynamicMissionUI>();
             dynamicUI.Setup(mission);
             activeDynamicMissionUIs[mission.missionId] = dynamicUI;
+            DynamicMissionManager.Instance?.NotifyMissionShown(mission.missionId);
             Debug.Log($"[LevelPanelUI] Added dynamic mission UI (with added component): {mission.displayText}");
         }
     }

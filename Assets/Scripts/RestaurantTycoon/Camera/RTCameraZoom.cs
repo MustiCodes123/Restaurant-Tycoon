@@ -28,6 +28,7 @@ namespace RestaurantTycoon
         [SerializeField] private Button zoomOutButton;
 
         private float targetFOV;
+        private bool externalControl;
 
         private void Start()
         {
@@ -46,7 +47,7 @@ namespace RestaurantTycoon
 
         private void Update()
         {
-            if (virtualCamera == null) return;
+            if (virtualCamera == null || externalControl) return;
 
             var lens = virtualCamera.Lens;
             lens.FieldOfView = Mathf.Lerp(lens.FieldOfView, targetFOV, Time.deltaTime * zoomSmoothSpeed);
@@ -61,6 +62,17 @@ namespace RestaurantTycoon
         public void ZoomOut()
         {
             targetFOV = Mathf.Clamp(targetFOV + zoomStep, zoomMin, zoomMax);
+        }
+
+        public void SetExternalControl(bool isExternallyControlled)
+        {
+            externalControl = isExternallyControlled;
+        }
+
+        public void SyncToCurrentFieldOfView()
+        {
+            if (virtualCamera != null)
+                targetFOV = virtualCamera.Lens.FieldOfView;
         }
     }
 }

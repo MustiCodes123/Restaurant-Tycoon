@@ -230,6 +230,7 @@ namespace RestaurantTycoon
             {
                 ui.Setup(mission);
                 activeDynamicMissionUIs.Add(ui);
+                DynamicMissionManager.Instance?.NotifyMissionShown(mission.missionId);
                 Debug.Log($"[RTLevelPanelUI] Spawned DynamicMissionUI for '{mission.missionId}'");
             }
             else

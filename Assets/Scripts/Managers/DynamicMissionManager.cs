@@ -51,8 +51,10 @@ public class DynamicMissionManager : MonoBehaviour
     private const string SAVE_KEY = "DynamicMissions";
     
     private Dictionary<string, DynamicMission> activeMissions = new Dictionary<string, DynamicMission>();
+    private HashSet<string> shownMissionIds = new HashSet<string>();
     
     public event Action<DynamicMission> OnMissionAdded;
+    public event Action<DynamicMission> OnMissionShown;
     public event Action<DynamicMission> OnMissionCompleted;
     public event Action<string> OnMissionRemoved;
     
@@ -282,6 +284,7 @@ public class DynamicMissionManager : MonoBehaviour
     {
         if (activeMissions.Remove(missionId))
         {
+            shownMissionIds.Remove(missionId);
             SaveMissions();
             Log($"Removed mission: {missionId}");
             OnMissionRemoved?.Invoke(missionId);
@@ -521,6 +524,27 @@ public class DynamicMissionManager : MonoBehaviour
         activeMissions.TryGetValue(missionId, out var mission);
         return mission;
     }
+
+    /// <summary>
+    /// Called by level panel UIs after a dynamic mission row is actually visible.
+    /// This is separate from OnMissionAdded because saved missions can be shown
+    /// again without being registered again.
+    /// </summary>
+    public void NotifyMissionShown(string missionId)
+    {
+        if (activeMissions.TryGetValue(missionId, out var mission) && !mission.isCompleted)
+        {
+            shownMissionIds.Add(missionId);
+            OnMissionShown?.Invoke(mission);
+        }
+    }
+
+    public bool HasShownMission(string missionId)
+    {
+        return shownMissionIds.Contains(missionId)
+            && activeMissions.TryGetValue(missionId, out var mission)
+            && !mission.isCompleted;
+    }
     
     /// <summary>
     /// Checks if a mission exists and is not completed
@@ -579,6 +603,7 @@ public class DynamicMissionManager : MonoBehaviour
     public void ClearAllMissions()
     {
         activeMissions.Clear();
+        shownMissionIds.Clear();
         PlayerPrefs.DeleteKey(SAVE_KEY);
         PlayerPrefs.Save();
         Log("Cleared all dynamic missions");
