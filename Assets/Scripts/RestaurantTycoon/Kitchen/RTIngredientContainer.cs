@@ -65,6 +65,28 @@ namespace RestaurantTycoon
         }
         public bool IsFull => StockedCount >= stockSlots.Count;
 
+        public void RefillAllEmptySlotsImmediate()
+        {
+            if (stockedIngredients == null)
+                stockedIngredients = new RTIngredient[stockSlots.Count];
+
+            if (restockCoroutine != null)
+            {
+                StopCoroutine(restockCoroutine);
+                restockCoroutine = null;
+            }
+
+            isRestocking = false;
+
+            for (int i = 0; i < stockSlots.Count; i++)
+            {
+                if (stockedIngredients[i] != null)
+                    continue;
+
+                SpawnIngredientAtSlot(i);
+            }
+        }
+
         private void Start()
         {
             stockedIngredients = new RTIngredient[stockSlots.Count];

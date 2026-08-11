@@ -74,6 +74,7 @@ namespace RestaurantTycoon
 
         // Components
         private NavMeshAgent agent;
+        private float baseAgentSpeed = 3.5f;
         private RTCustomerState currentState;
 
         // References
@@ -117,9 +118,17 @@ namespace RestaurantTycoon
         private void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
+            if (agent != null)
+                baseAgentSpeed = agent.speed;
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
             HideWaitingUI();
+        }
+
+        public void ApplyRewardSpeedMultiplier()
+        {
+            if (agent != null)
+                agent.speed = baseAgentSpeed * RTRewardedAdSystem.CharacterSpeedMultiplier;
         }
 
         private void Update()
@@ -689,6 +698,7 @@ namespace RestaurantTycoon
         {
             if (agent == null) return;
 
+            ApplyRewardSpeedMultiplier();
             currentDestination = destination;
             agent.SetDestination(destination);
             isMoving = true;

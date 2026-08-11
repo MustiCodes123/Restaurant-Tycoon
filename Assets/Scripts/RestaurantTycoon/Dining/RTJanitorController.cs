@@ -70,6 +70,7 @@ namespace RestaurantTycoon
         private float actionTimer;
         private int tablesCollectedThisTrip;
         private float targetAgentSpeed;
+        private float currentRewardSpeedMultiplier = 1f;
         private bool isInitialized;
         private Tween faceTween;
 
@@ -165,6 +166,12 @@ namespace RestaurantTycoon
             moveSpeed = clamped;
             ConfigureAgent(moveSpeed);
             Debug.Log($"[RTJanitorController] Janitor speed upgraded to {clamped}");
+        }
+
+        public void ApplyRewardSpeedMultiplier()
+        {
+            currentRewardSpeedMultiplier = RTRewardedAdSystem.CharacterSpeedMultiplier;
+            ConfigureAgent(moveSpeed);
         }
 
         /// <summary>Sets how many tables the janitor cleans per trip before returning to the bin.</summary>
@@ -417,7 +424,7 @@ namespace RestaurantTycoon
             faceTween?.Kill();
             faceTween = null;
             agent.isStopped = false;
-            targetAgentSpeed = moveSpeed;
+            targetAgentSpeed = moveSpeed * currentRewardSpeedMultiplier;
             agent.SetDestination(destination);
         }
 
@@ -452,8 +459,9 @@ namespace RestaurantTycoon
         {
             if (agent == null) return;
 
-            targetAgentSpeed = speed;
-            agent.speed = speed;
+            currentRewardSpeedMultiplier = RTRewardedAdSystem.CharacterSpeedMultiplier;
+            targetAgentSpeed = speed * currentRewardSpeedMultiplier;
+            agent.speed = targetAgentSpeed;
             agent.acceleration = acceleration;
             agent.angularSpeed = angularSpeed;
             agent.stoppingDistance = stoppingDistance;
@@ -481,7 +489,7 @@ namespace RestaurantTycoon
             float turnAngle = Vector3.Angle(transform.forward, desiredVelocity.normalized);
             float turnT = Mathf.InverseLerp(0f, Mathf.Max(1f, turnSlowdownAngle), turnAngle);
             float speedFactor = Mathf.Lerp(1f, minimumTurnSpeedFactor, turnT);
-            targetAgentSpeed = moveSpeed * speedFactor;
+            targetAgentSpeed = moveSpeed * currentRewardSpeedMultiplier * speedFactor;
             agent.speed = Mathf.MoveTowards(agent.speed, targetAgentSpeed, acceleration * Time.deltaTime);
         }
 

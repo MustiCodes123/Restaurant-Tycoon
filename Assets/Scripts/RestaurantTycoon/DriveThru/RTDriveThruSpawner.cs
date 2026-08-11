@@ -68,6 +68,12 @@ namespace RestaurantTycoon
         [Tooltip("Drive-through only begins spawning once the player reaches this level.")]
         [SerializeField] private int requiredLevel = 1;
 
+        [Header("Cinematic Tutorial")]
+        [SerializeField] private bool playFirstDriveThruCinematicFocus = true;
+        [Tooltip("Focus target shown the first time a drive-through car waits. If empty, stopPoint is used.")]
+        [SerializeField] private Transform cinematicFocusTarget;
+        [SerializeField] private string cinematicFocusPrefsKey = "RT_DriveThru_FirstFocusPlayed";
+
         // ── Order Settings ────────────────────────────────────────────────────
 
         [Header("Order Settings")]
@@ -237,7 +243,15 @@ namespace RestaurantTycoon
             }
 
             activeCars.Add(car);
-            car.Initialize(itemType, payment, approachPath, departPath, moneyDropPoint);
+            car.Initialize(
+                itemType,
+                payment,
+                approachPath,
+                departPath,
+                moneyDropPoint,
+                GetCinematicFocusTarget(),
+                ShouldPlayFirstDriveThruFocus(),
+                cinematicFocusPrefsKey);
 
             Debug.Log($"[RTDriveThruSpawner] Spawned car ordering '{itemType.displayName}' for ${payment}.");
         }
@@ -265,6 +279,18 @@ namespace RestaurantTycoon
         private void CleanDeadCars()
         {
             activeCars.RemoveAll(c => c == null);
+        }
+
+        private Transform GetCinematicFocusTarget()
+        {
+            return cinematicFocusTarget != null ? cinematicFocusTarget : stopPoint;
+        }
+
+        private bool ShouldPlayFirstDriveThruFocus()
+        {
+            return playFirstDriveThruCinematicFocus
+                && !string.IsNullOrEmpty(cinematicFocusPrefsKey)
+                && PlayerPrefs.GetInt(cinematicFocusPrefsKey, 0) == 0;
         }
 
 #if UNITY_EDITOR

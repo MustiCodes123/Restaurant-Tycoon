@@ -266,7 +266,7 @@ public class MoneyDrop : MonoBehaviour
         {
             if (CurrencyManager.Instance != null)
             {
-                CurrencyManager.Instance.AddMoney(moneyAmount);
+                CurrencyManager.Instance.AddMoney(RestaurantTycoon.RTRewardedAdSystem.ApplyMoneyMultiplier(moneyAmount));
             }
 
             if (LevelManager.Instance != null)

@@ -1,5 +1,7 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
 namespace RestaurantTycoon
 {
@@ -12,19 +14,23 @@ namespace RestaurantTycoon
         [Header("References")]
         [Tooltip("Icon or image GameObject to show when a drive-through order is waiting.")]
         [SerializeField] private RectTransform driveThroughIndicator;
+        [Tooltip("Optional text label that shows the item requested by the waiting car.")]
+        [SerializeField] private TextMeshProUGUI requiredItemText;
 
         [Header("Animation")]
         [SerializeField] private float showScaleDuration = 0.18f;
         [SerializeField] private float hideScaleDuration = 0.12f;
         [SerializeField] private float shakeDuration = 0.22f;
+        [Tooltip("Rotation degrees used for layout-safe attention shake.")]
         [SerializeField] private float shakeStrength = 8f;
         [SerializeField] private float shakeInterval = 1.1f;
 
         private Tween visibilityTween;
         private Tween shakeTween;
         private Vector3 indicatorBaseScale = Vector3.one;
-        private Vector2 indicatorBasePosition;
+        private Vector3 indicatorBaseRotation;
         private CanvasGroup indicatorCanvasGroup;
+        private LayoutElement indicatorLayoutElement;
         private bool isVisible;
         private bool isSubscribed;
 
@@ -36,10 +42,14 @@ namespace RestaurantTycoon
             if (driveThroughIndicator != null)
             {
                 indicatorBaseScale = driveThroughIndicator.localScale;
-                indicatorBasePosition = driveThroughIndicator.anchoredPosition;
+                indicatorBaseRotation = driveThroughIndicator.localEulerAngles;
                 indicatorCanvasGroup = driveThroughIndicator.GetComponent<CanvasGroup>();
                 if (IsIndicatorOnThisObject() && indicatorCanvasGroup == null)
                     indicatorCanvasGroup = driveThroughIndicator.gameObject.AddComponent<CanvasGroup>();
+
+                indicatorLayoutElement = driveThroughIndicator.GetComponent<LayoutElement>();
+                if (indicatorLayoutElement == null)
+                    indicatorLayoutElement = driveThroughIndicator.gameObject.AddComponent<LayoutElement>();
 
                 HideImmediate();
             }
@@ -105,25 +115,28 @@ namespace RestaurantTycoon
 
         private void RefreshVisibility()
         {
-            if (HasWaitingDriveThroughOrder())
+            DynamicMission mission = GetWaitingDriveThroughOrder();
+            UpdateRequiredItemText(mission);
+
+            if (mission != null)
                 Show();
             else
                 Hide();
         }
 
-        private bool HasWaitingDriveThroughOrder()
+        private DynamicMission GetWaitingDriveThroughOrder()
         {
             if (DynamicMissionManager.Instance == null)
-                return false;
+                return null;
 
             var activeMissions = DynamicMissionManager.Instance.GetActiveMissions();
             for (int i = 0; i < activeMissions.Count; i++)
             {
                 if (activeMissions[i].missionType == DynamicMissionType.DriveThruOrder)
-                    return true;
+                    return activeMissions[i];
             }
 
-            return false;
+            return null;
         }
 
         private void Show()
@@ -137,8 +150,10 @@ namespace RestaurantTycoon
                 driveThroughIndicator.gameObject.SetActive(true);
 
             SetCanvasGroupVisible(true);
-            driveThroughIndicator.anchoredPosition = indicatorBasePosition;
+            SetLayoutIgnored(false);
+            driveThroughIndicator.localEulerAngles = indicatorBaseRotation;
             driveThroughIndicator.localScale = Vector3.zero;
+            RebuildParentLayout();
 
             visibilityTween = driveThroughIndicator
                 .DOScale(indicatorBaseScale, showScaleDuration)
@@ -169,7 +184,7 @@ namespace RestaurantTycoon
             StopShake();
 
             Sequence sequence = DOTween.Sequence();
-            sequence.Append(driveThroughIndicator.DOShakeAnchorPos(shakeDuration, shakeStrength, 10, 45f, false, true));
+            sequence.Append(driveThroughIndicator.DOPunchRotation(Vector3.forward * shakeStrength, shakeDuration, 8, 0.4f));
             sequence.AppendInterval(shakeInterval);
             sequence.SetLoops(-1, LoopType.Restart);
             shakeTween = sequence;
@@ -181,7 +196,7 @@ namespace RestaurantTycoon
             shakeTween = null;
 
             if (driveThroughIndicator != null)
-                driveThroughIndicator.anchoredPosition = indicatorBasePosition;
+                driveThroughIndicator.localEulerAngles = indicatorBaseRotation;
         }
 
         private void StopAnimations()
@@ -223,11 +238,15 @@ namespace RestaurantTycoon
                 return;
 
             SetCanvasGroupVisible(false);
-            driveThroughIndicator.anchoredPosition = indicatorBasePosition;
+            SetLayoutIgnored(true);
+            driveThroughIndicator.localEulerAngles = indicatorBaseRotation;
             driveThroughIndicator.localScale = Vector3.zero;
+            UpdateRequiredItemText(null);
 
             if (!IsIndicatorOnThisObject())
                 driveThroughIndicator.gameObject.SetActive(false);
+
+            RebuildParentLayout();
         }
 
         private void SetCanvasGroupVisible(bool visible)
@@ -243,6 +262,49 @@ namespace RestaurantTycoon
         private bool IsIndicatorOnThisObject()
         {
             return driveThroughIndicator != null && driveThroughIndicator.gameObject == gameObject;
+        }
+
+        private void UpdateRequiredItemText(DynamicMission mission)
+        {
+            if (requiredItemText == null)
+                return;
+
+            requiredItemText.text = mission != null ? ExtractRequiredItemName(mission.displayText) : string.Empty;
+        }
+
+        private string ExtractRequiredItemName(string displayText)
+        {
+            if (string.IsNullOrWhiteSpace(displayText))
+                return string.Empty;
+
+            const string prefix = "Drive-through:";
+            const string suffix = "order waiting!";
+
+            string itemName = displayText;
+            if (itemName.StartsWith(prefix))
+                itemName = itemName.Substring(prefix.Length);
+
+            int suffixIndex = itemName.IndexOf(suffix);
+            if (suffixIndex >= 0)
+                itemName = itemName.Substring(0, suffixIndex);
+
+            return itemName.Trim();
+        }
+
+        private void RebuildParentLayout()
+        {
+            if (driveThroughIndicator == null || driveThroughIndicator.parent == null)
+                return;
+
+            RectTransform parent = driveThroughIndicator.parent as RectTransform;
+            if (parent != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(parent);
+        }
+
+        private void SetLayoutIgnored(bool ignored)
+        {
+            if (indicatorLayoutElement != null)
+                indicatorLayoutElement.ignoreLayout = ignored;
         }
     }
 }

@@ -47,6 +47,42 @@ namespace RestaurantTycoon
         public bool IsFull => outputSlots.Count == 0 || StoredCount >= outputSlots.Count;
         public bool HasItems => StoredCount > 0;
 
+        public void RefillAllEmptySlots(GameObject finishedItemPrefab)
+        {
+            if (finishedItemPrefab == null)
+            {
+                Debug.LogWarning($"[RTItemOutputContainer] Cannot refill '{gameObject.name}' because no finished item prefab was provided.");
+                return;
+            }
+
+            if (storedItems == null)
+                storedItems = new RTFinishedItem[outputSlots.Count];
+
+            for (int i = 0; i < outputSlots.Count; i++)
+            {
+                if (storedItems[i] != null)
+                    continue;
+
+                Transform slot = outputSlots[i];
+                if (slot == null)
+                    continue;
+
+                GameObject obj = Instantiate(finishedItemPrefab, slot.position, slot.rotation);
+                RTFinishedItem item = obj.GetComponent<RTFinishedItem>();
+                if (item == null)
+                {
+                    Debug.LogWarning($"[RTItemOutputContainer] Refill prefab '{finishedItemPrefab.name}' is missing RTFinishedItem.");
+                    Destroy(obj);
+                    continue;
+                }
+
+                storedItems[i] = item;
+                item.PlaySpawnAnimation();
+            }
+
+            PlayItemReadyAnimation();
+        }
+
         private void Start()
         {
             storedItems = new RTFinishedItem[outputSlots.Count];
