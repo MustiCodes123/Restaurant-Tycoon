@@ -160,15 +160,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MoneyDrop
   moneyAmount: 10
-  pickupRadius: 1.2
+  pickupRadius: 1.5
   playerLayer:
     serializedVersion: 2
     m_Bits: 8
-  bounceHeight: 1
-  bounceDuration: 0.2
+  stackSearchRadius: 1.96
+  stackColumns: 3
+  stackSpacingX: 0.54
+  stackSpacingZ: 0.49
+  stackLayerHeight: 0.018
+  stackSettleDuration: 0.36
+  stackTiltDegrees: 5
+  bounceHeight: 1.01
+  bounceDuration: 0.36
   collectDuration: 0.5
-  arcHeight: 1.5
-  spriteRenderer: {fileID: 0}
+  arcHeight: 2.55
+  collectStaggerPerSlot: 0.17
+  collectPunchScale: 1.41
+  spriteRenderer: {fileID: 3841234307977105936}
 --- !u!1001 &4222764806303666948
 PrefabInstance:
   m_ObjectHideFlags: 0
