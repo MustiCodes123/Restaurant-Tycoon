@@ -259,6 +259,9 @@ public class LevelPanelUI : MonoBehaviour
     
     private void OnDynamicMissionAdded(DynamicMission mission)
     {
+        if (mission.missionType == DynamicMissionType.DriveThruOrder)
+            return;
+
         AddDynamicMissionUI(mission);
     }
     
@@ -283,6 +286,9 @@ public class LevelPanelUI : MonoBehaviour
     
     private void AddDynamicMissionUI(DynamicMission mission)
     {
+        if (mission.missionType == DynamicMissionType.DriveThruOrder)
+            return;
+
         // Don't add if already exists
         if (activeDynamicMissionUIs.ContainsKey(mission.missionId))
         {

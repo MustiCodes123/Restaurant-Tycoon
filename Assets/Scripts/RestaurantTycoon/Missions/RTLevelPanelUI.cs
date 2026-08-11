@@ -170,6 +170,9 @@ namespace RestaurantTycoon
 
         private void OnDynamicMissionAdded(DynamicMission mission)
         {
+            if (mission.missionType == DynamicMissionType.DriveThruOrder)
+                return;
+
             Debug.Log($"[RTLevelPanelUI] OnDynamicMissionAdded: '{mission.missionId}' | '{mission.displayText}'");
             SpawnDynamicMissionUI(mission);
         }
@@ -204,6 +207,9 @@ namespace RestaurantTycoon
 
         private void SpawnDynamicMissionUI(DynamicMission mission)
         {
+            if (mission.missionType == DynamicMissionType.DriveThruOrder)
+                return;
+
             if (dynamicMissionUIPrefab == null)
             {
                 Debug.LogError("[RTLevelPanelUI] dynamicMissionUIPrefab is NULL — assign it in the Inspector on RTLevelPanelUI.");

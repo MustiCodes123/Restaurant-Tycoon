@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using DG.Tweening;
 
 namespace RestaurantTycoon
 {
@@ -49,14 +50,21 @@ namespace RestaurantTycoon
         [SerializeField] private int frenzyCustomersPerCounter = 3;
         [Tooltip("UI panel that is shown while frenzy is active.")]
         [SerializeField] private GameObject frenzyPanel;
+        [Tooltip("Optional icon inside the frenzy panel. If empty, the panel transform is shaken.")]
+        [SerializeField] private RectTransform frenzyRushIcon;
         [Tooltip("Text that displays the remaining frenzy time countdown.")]
         [SerializeField] private TMP_Text frenzyTimerText;
+        [SerializeField] private float frenzyIconShakeStrength = 8f;
+        [SerializeField] private float frenzyIconShakeDuration = 0.22f;
+        [SerializeField] private float frenzyIconShakeInterval = 1.1f;
 
         private List<RTCustomer> activeCustomers = new List<RTCustomer>();
         private bool isSpawning = false;
         private int currentBatchTotal = 0;
 
         private bool isFrenzy = false;
+        private Tween frenzyIconTween;
+        private Vector2 frenzyIconBasePosition;
 
         public int CustomerCount => customerCount;
         public int ActiveCount => activeCustomers.Count;
@@ -97,6 +105,8 @@ namespace RestaurantTycoon
             foreach (var counter in targetCounters)
                 if (counter != null)
                     counter.OnItemPlaced -= OnItemPlacedOnCounter;
+
+            StopFrenzyIconShake();
         }
 
         private IEnumerator BatchLoop()
@@ -256,6 +266,7 @@ namespace RestaurantTycoon
             Debug.Log("[RTCustomerSpawner] Frenzy started!");
 
             if (frenzyPanel != null) frenzyPanel.SetActive(true);
+            StartFrenzyIconShake();
 
             // Immediately fill every active counter to frenzyCustomersPerCounter
             FillFrenzyCapacity();
@@ -307,9 +318,44 @@ namespace RestaurantTycoon
         private void EndFrenzy()
         {
             isFrenzy = false;
+            StopFrenzyIconShake();
             if (frenzyPanel != null) frenzyPanel.SetActive(false);
             if (frenzyTimerText != null) frenzyTimerText.text = string.Empty;
             Debug.Log("[RTCustomerSpawner] Frenzy ended. Returning to normal batch mode.");
+        }
+
+        private void StartFrenzyIconShake()
+        {
+            RectTransform target = GetFrenzyShakeTarget();
+            if (target == null) return;
+
+            StopFrenzyIconShake();
+
+            frenzyIconBasePosition = target.anchoredPosition;
+            Sequence sequence = DOTween.Sequence();
+            sequence.Append(target.DOShakeAnchorPos(frenzyIconShakeDuration, frenzyIconShakeStrength, 10, 45f, false, true));
+            sequence.AppendInterval(frenzyIconShakeInterval);
+            sequence.SetLoops(-1, LoopType.Restart);
+            frenzyIconTween = sequence;
+        }
+
+        private void StopFrenzyIconShake()
+        {
+            RectTransform target = GetFrenzyShakeTarget();
+            bool hadActiveTween = frenzyIconTween != null;
+            frenzyIconTween?.Kill();
+            frenzyIconTween = null;
+
+            if (hadActiveTween && target != null)
+                target.anchoredPosition = frenzyIconBasePosition;
+        }
+
+        private RectTransform GetFrenzyShakeTarget()
+        {
+            if (frenzyRushIcon != null)
+                return frenzyRushIcon;
+
+            return frenzyPanel != null ? frenzyPanel.GetComponent<RectTransform>() : null;
         }
 
         #endregion
