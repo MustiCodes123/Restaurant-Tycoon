@@ -24,6 +24,14 @@ namespace RestaurantTycoon
         [Tooltip("Placeholder visuals, lock icons, etc. that disappear on unlock.")]
         [SerializeField] private List<GameObject> objectsToHide = new List<GameObject>();
 
+        [Header("Future Unlock Preview")]
+        [Tooltip("Subtle locked tile / lock icon preview objects shown before this area is unlocked.")]
+        [SerializeField] private List<GameObject> lockedPreviewObjects = new List<GameObject>();
+        [Tooltip("Show preview before the required player level is reached.")]
+        [SerializeField] private bool showPreviewBeforeRequiredLevel = true;
+        [Tooltip("Keep preview visible while the unlock spot is available, until the player completes the unlock.")]
+        [SerializeField] private bool showPreviewWhenUnlockAvailable = true;
+
         [Header("Cinematic Tutorial")]
         [Tooltip("Optional explicit targets to show after unlock. If empty, RTStall objects are auto-detected from Objects To Enable.")]
         [SerializeField] private List<Transform> cinematicFocusTargets = new List<Transform>();
@@ -124,12 +132,14 @@ namespace RestaurantTycoon
             if (isUnlocked)
             {
                 HideUnlockSpot();
+                RefreshLockedPreview();
                 return;
             }
 
             if (unlockData == null)
             {
                 HideUnlockSpot();
+                RefreshLockedPreview();
                 return;
             }
 
@@ -150,6 +160,8 @@ namespace RestaurantTycoon
                 Debug.Log($"[RTSceneObjectUnlock] '{unlockData.UnlockName}' not yet available. Level {playerLevel} / {unlockData.RequiredPlayerLevel}");
                 OnUnlockUnavailable?.Invoke();
             }
+
+            RefreshLockedPreview(playerLevel);
         }
 
         /// <summary>Called by RTSceneObjectUnlockSpot when payment is complete.</summary>
@@ -165,6 +177,8 @@ namespace RestaurantTycoon
             // Hide placeholder objects
             foreach (var obj in objectsToHide)
                 if (obj != null) obj.SetActive(false);
+
+            HideLockedPreview();
 
             // Enable unlocked objects with pop animation
             foreach (var obj in objectsToEnable)
@@ -198,6 +212,8 @@ namespace RestaurantTycoon
 
                 foreach (var obj in objectsToHide)
                     if (obj != null) obj.SetActive(false);
+
+                HideLockedPreview();
             }
             else
             {
@@ -207,6 +223,51 @@ namespace RestaurantTycoon
 
                 foreach (var obj in objectsToHide)
                     if (obj != null) obj.SetActive(true);
+
+                RefreshLockedPreview();
+            }
+        }
+
+        private void RefreshLockedPreview(int playerLevel = -1)
+        {
+            if (lockedPreviewObjects.Count == 0)
+                return;
+
+            if (isUnlocked || unlockData == null)
+            {
+                HideLockedPreview();
+                return;
+            }
+
+            if (playerLevel < 0)
+                playerLevel = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+
+            bool isAvailable = playerLevel >= unlockData.RequiredPlayerLevel;
+            bool shouldShow = isAvailable ? showPreviewWhenUnlockAvailable : showPreviewBeforeRequiredLevel;
+            SetLockedPreviewVisible(shouldShow);
+        }
+
+        private void HideLockedPreview()
+        {
+            SetLockedPreviewVisible(false);
+        }
+
+        private void SetLockedPreviewVisible(bool visible)
+        {
+            foreach (var obj in lockedPreviewObjects)
+            {
+                if (obj == null)
+                    continue;
+
+                if (visible)
+                    obj.SetActive(true);
+
+                obj.SendMessage(
+                    visible ? "ShowLocked" : "HideLocked",
+                    SendMessageOptions.DontRequireReceiver);
+
+                if (!visible)
+                    obj.SetActive(false);
             }
         }
 
