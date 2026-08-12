@@ -310,6 +310,7 @@ public class AdsManager : MonoBehaviour
         _rewardedAd.OnAdFullScreenContentFailed += error =>
         {
             LogWarning("Rewarded ad failed to show: " + error);
+            _onRewardedAdClosed?.Invoke();
             LoadRewardedAd();
         };
 

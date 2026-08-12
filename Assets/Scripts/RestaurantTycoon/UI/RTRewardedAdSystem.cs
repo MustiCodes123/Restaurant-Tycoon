@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
@@ -59,6 +60,16 @@ namespace RestaurantTycoon
         [SerializeField] private float shakeStrength = 8f;
         [SerializeField] private float shakeInterval = 1.1f;
 
+        [Header("Reward Confirmation")]
+        [SerializeField] private GameObject confirmationPanelRoot;
+        [SerializeField] private Button confirmationWatchAdButton;
+        [SerializeField] private Button confirmationCancelButton;
+        [SerializeField] private TextMeshProUGUI confirmationDescriptionText;
+        [SerializeField] private string refillShelfDescription = "Watch an ad to refill shelf stock.";
+        [SerializeField] private string refillIngredientDescription = "Watch an ad to refill ingredient storage.";
+        [SerializeField] private string doubleMoneyDescription = "Watch an ad to earn 2x money for 3 minutes.";
+        [SerializeField] private string speedBoostDescription = "Watch an ad to boost all characters for 30 seconds.";
+
         [Header("Reward Targets")]
         [Tooltip("Output shelves to refill. Assign the shelf and the finished item prefab for that shelf.")]
         [SerializeField] private List<ShelfRefillTarget> shelfRefillTargets = new List<ShelfRefillTarget>();
@@ -79,6 +90,8 @@ namespace RestaurantTycoon
         private Coroutine randomRewardCoroutine;
         private Coroutine doubleMoneyCoroutine;
         private Coroutine speedBoostCoroutine;
+        private RTRewardedAdRewardType pendingRewardType;
+        private bool hasPendingReward;
 
         public static float MoneyMultiplier { get; private set; } = 1f;
         public static float CharacterSpeedMultiplier { get; private set; } = 1f;
@@ -92,7 +105,9 @@ namespace RestaurantTycoon
         {
             CacheMissingRewardTargets();
             ConfigureButtons();
+            ConfigureConfirmationPanel();
             HideAllRewardsImmediate();
+            HideConfirmationPanel();
         }
 
         private void OnEnable()
@@ -113,6 +128,7 @@ namespace RestaurantTycoon
 
             StopAllIconAnimations();
             HideAllRewardsImmediate();
+            HideConfirmationPanel();
         }
 
         private void OnDestroy()
@@ -178,6 +194,21 @@ namespace RestaurantTycoon
 
         private void RequestReward(RTRewardedAdRewardType rewardType)
         {
+            ShowConfirmationPanel(rewardType);
+        }
+
+        private void ExecutePendingReward()
+        {
+            if (!hasPendingReward)
+                return;
+
+            RTRewardedAdRewardType rewardType = pendingRewardType;
+            HideConfirmationPanel();
+            RequestRewardedAd(rewardType);
+        }
+
+        private void RequestRewardedAd(RTRewardedAdRewardType rewardType)
+        {
             if (AdsManager.Instance == null)
             {
                 Debug.LogWarning("[RTRewardedAdSystem] AdsManager not found in scene.");
@@ -187,6 +218,63 @@ namespace RestaurantTycoon
             AdsManager.Instance.ShowRewardedAd(
                 onRewardEarned: _ => GrantReward(rewardType),
                 onClosed: () => AdsManager.Instance.LoadRewardedAd());
+        }
+
+        private void ConfigureConfirmationPanel()
+        {
+            if (confirmationWatchAdButton != null)
+            {
+                confirmationWatchAdButton.onClick.RemoveListener(ExecutePendingReward);
+                confirmationWatchAdButton.onClick.AddListener(ExecutePendingReward);
+            }
+
+            if (confirmationCancelButton != null)
+            {
+                confirmationCancelButton.onClick.RemoveListener(HideConfirmationPanel);
+                confirmationCancelButton.onClick.AddListener(HideConfirmationPanel);
+            }
+        }
+
+        private void ShowConfirmationPanel(RTRewardedAdRewardType rewardType)
+        {
+            pendingRewardType = rewardType;
+            hasPendingReward = true;
+
+            if (confirmationDescriptionText != null)
+                confirmationDescriptionText.text = GetConfirmationDescription(rewardType);
+
+            if (confirmationPanelRoot != null)
+            {
+                confirmationPanelRoot.SetActive(true);
+                return;
+            }
+
+            ExecutePendingReward();
+        }
+
+        private void HideConfirmationPanel()
+        {
+            hasPendingReward = false;
+
+            if (confirmationPanelRoot != null)
+                confirmationPanelRoot.SetActive(false);
+        }
+
+        private string GetConfirmationDescription(RTRewardedAdRewardType rewardType)
+        {
+            switch (rewardType)
+            {
+                case RTRewardedAdRewardType.RefillShelfStock:
+                    return refillShelfDescription;
+                case RTRewardedAdRewardType.RefillIngredientStorage:
+                    return refillIngredientDescription;
+                case RTRewardedAdRewardType.DoubleMoney:
+                    return doubleMoneyDescription;
+                case RTRewardedAdRewardType.CharacterSpeedBoost:
+                    return speedBoostDescription;
+                default:
+                    return "Watch an ad to claim this reward.";
+            }
         }
 
         private void GrantReward(RTRewardedAdRewardType rewardType)
