@@ -28,8 +28,8 @@ public class AdsManager : MonoBehaviour
     [SerializeField] private string interstitialAdUnitId = "unused";
 #endif
 
-    [Header("Rewarded Ad (reserved for future use)")]
-#if UNITY_ANDROID
+    [Header("Rewarded Ad")]
+#if UNITY_EDITOR || UNITY_ANDROID
     [SerializeField] private string rewardedAdUnitId = "ca-app-pub-3940256099942544/5224354917"; // Test ID
 #elif UNITY_IPHONE
     [SerializeField] private string rewardedAdUnitId = "ca-app-pub-3940256099942544/1712485313"; // Test ID
@@ -52,6 +52,10 @@ public class AdsManager : MonoBehaviour
     // Rewarded callback (set by the caller before showing the ad)
     private Action<Reward> _onRewardEarned;
     private Action         _onRewardedAdClosed;
+    private Action<Reward> _pendingRewardedEarned;
+    private Action         _pendingRewardedClosed;
+    private bool           _isRewardedAdLoading;
+    private bool           _pendingRewardedShow;
 
     public bool IsRewardedAdReady => _rewardedAd != null && _rewardedAd.CanShowAd();
 
@@ -76,7 +80,7 @@ public class AdsManager : MonoBehaviour
             Log("MobileAds initialized.");
             LoadBannerAd();
             LoadInterstitialAd();
-            // Rewarded ad is loaded on demand; call LoadRewardedAd() when you need it.
+            LoadRewardedAd();
         });
 
         _interstitialTimer = interstitialIntervalSeconds;
@@ -212,6 +216,17 @@ public class AdsManager : MonoBehaviour
     /// <summary>Pre-loads a rewarded ad so it's ready when needed.</summary>
     public void LoadRewardedAd()
     {
+        if (!_isInitialized)
+        {
+            Log("Rewarded ad load requested before MobileAds initialization.");
+            return;
+        }
+
+        if (_isRewardedAdLoading)
+            return;
+
+        _isRewardedAdLoading = true;
+
         if (_rewardedAd != null)
         {
             _rewardedAd.Destroy();
@@ -220,6 +235,8 @@ public class AdsManager : MonoBehaviour
 
         RewardedAd.Load(rewardedAdUnitId, new AdRequest(), (ad, error) =>
         {
+            _isRewardedAdLoading = false;
+
             if (error != null || ad == null)
             {
                 LogWarning("Rewarded ad failed to load: " + error);
@@ -228,6 +245,14 @@ public class AdsManager : MonoBehaviour
 
             _rewardedAd = ad;
             Log("Rewarded ad loaded.");
+
+            if (_pendingRewardedShow)
+            {
+                ShowLoadedRewardedAd(_pendingRewardedEarned, _pendingRewardedClosed);
+                _pendingRewardedShow = false;
+                _pendingRewardedEarned = null;
+                _pendingRewardedClosed = null;
+            }
         });
     }
 
@@ -238,9 +263,36 @@ public class AdsManager : MonoBehaviour
     /// <param name="onClosed">Called when the ad closes (reward may or may not have been earned).</param>
     public void ShowRewardedAd(Action<Reward> onRewardEarned, Action onClosed = null)
     {
+        if (!_isInitialized)
+        {
+            Log("Rewarded ad show requested before MobileAds initialization. Queuing request.");
+            QueueRewardedShow(onRewardEarned, onClosed);
+            return;
+        }
+
         if (!IsRewardedAdReady)
         {
-            LogWarning("Rewarded ad is not ready.");
+            Log("Rewarded ad is not ready. Loading and queuing show request.");
+            QueueRewardedShow(onRewardEarned, onClosed);
+            LoadRewardedAd();
+            return;
+        }
+
+        ShowLoadedRewardedAd(onRewardEarned, onClosed);
+    }
+
+    private void QueueRewardedShow(Action<Reward> onRewardEarned, Action onClosed)
+    {
+        _pendingRewardedEarned = onRewardEarned;
+        _pendingRewardedClosed = onClosed;
+        _pendingRewardedShow = true;
+    }
+
+    private void ShowLoadedRewardedAd(Action<Reward> onRewardEarned, Action onClosed)
+    {
+        if (!IsRewardedAdReady)
+        {
+            QueueRewardedShow(onRewardEarned, onClosed);
             LoadRewardedAd();
             return;
         }
@@ -258,6 +310,7 @@ public class AdsManager : MonoBehaviour
         _rewardedAd.OnAdFullScreenContentFailed += error =>
         {
             LogWarning("Rewarded ad failed to show: " + error);
+            _onRewardedAdClosed?.Invoke();
             LoadRewardedAd();
         };
 

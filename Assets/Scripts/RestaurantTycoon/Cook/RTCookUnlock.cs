@@ -26,6 +26,10 @@ namespace RestaurantTycoon
         [Header("Objects to Show on Unlock")]
         [SerializeField] private GameObject[] objectsToShow;
 
+        [Header("Cinematic Tutorial")]
+        [Tooltip("Optional explicit targets to show after this cook unlocks. If empty, the cook is shown.")]
+        [SerializeField] private Transform[] cinematicFocusTargets;
+
         [Header("Save Key")]
         [SerializeField] private string saveKeyOverride;
 
@@ -35,6 +39,7 @@ namespace RestaurantTycoon
 
         // ── Runtime ──────────────────────────────────────────────────────────
         private bool isUnlocked = false;
+        private bool hasPlayedAvailabilityFocus = false;
 
         private string SaveKey => string.IsNullOrEmpty(saveKeyOverride)
             ? $"RTCookUnlock_{unlockData?.CookName ?? gameObject.name}"
@@ -61,7 +66,11 @@ namespace RestaurantTycoon
                 RTLevelManager.Instance.OnLevelLoaded += OnPlayerLevelUp;
             }
 
+            if (DynamicMissionManager.Instance != null)
+                DynamicMissionManager.Instance.OnMissionShown += OnDynamicMissionShown;
+
             CheckUnlockAvailability();
+            PlayAvailabilityFocusIfMissionAlreadyShown();
         }
 
         private void OnDestroy()
@@ -71,6 +80,9 @@ namespace RestaurantTycoon
                 RTLevelManager.Instance.OnLevelUp     -= OnPlayerLevelUp;
                 RTLevelManager.Instance.OnLevelLoaded -= OnPlayerLevelUp;
             }
+
+            if (DynamicMissionManager.Instance != null)
+                DynamicMissionManager.Instance.OnMissionShown -= OnDynamicMissionShown;
         }
 
         private void OnPlayerLevelUp(int newLevel) => CheckUnlockAvailability();
@@ -140,6 +152,8 @@ namespace RestaurantTycoon
                 ActivateWithPop(cook.gameObject);
             else
                 Debug.LogWarning("[RTCookUnlock] No RTCook reference assigned!");
+
+            PlayCinematicCameraTutorial();
 
             OnCookUnlocked?.Invoke();
             DynamicMissionManager.Instance?.CompleteCookUnlockMission(unlockData?.CookName);
@@ -215,11 +229,50 @@ namespace RestaurantTycoon
                 });
         }
 
+        private void PlayAvailabilityCameraTutorial()
+        {
+            if (hasPlayedAvailabilityFocus) return;
+
+            hasPlayedAvailabilityFocus = true;
+            PlayCinematicCameraTutorial();
+        }
+
+        private void OnDynamicMissionShown(DynamicMission mission)
+        {
+            if (mission == null || isUnlocked || unlockData == null) return;
+
+            if (mission.missionId == MissionId)
+                PlayAvailabilityCameraTutorial();
+        }
+
+        private void PlayAvailabilityFocusIfMissionAlreadyShown()
+        {
+            if (isUnlocked || unlockData == null || DynamicMissionManager.Instance == null) return;
+
+            if (DynamicMissionManager.Instance.HasShownMission(MissionId))
+                PlayAvailabilityCameraTutorial();
+        }
+
+        private string MissionId => $"UnlockCook_{unlockData.CookName}";
+
+        private void PlayCinematicCameraTutorial()
+        {
+            if (cinematicFocusTargets != null && cinematicFocusTargets.Length > 0)
+            {
+                RTTutorialCameraFocus.PlaySequence(cinematicFocusTargets);
+                return;
+            }
+
+            if (cook != null)
+                RTTutorialCameraFocus.Play(cook.transform);
+        }
+
         [ContextMenu("Reset Unlock State")]
         public void ResetUnlockState()
         {
             PlayerPrefs.DeleteKey(SaveKey);
             isUnlocked = false;
+            hasPlayedAvailabilityFocus = false;
             ApplyUnlockState();
             CheckUnlockAvailability();
         }

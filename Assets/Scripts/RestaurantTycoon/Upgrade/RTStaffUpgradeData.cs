@@ -43,11 +43,14 @@ namespace RestaurantTycoon
         [Header("Identity")]
         [Tooltip("Unique key used for PlayerPrefs save — must be unique per upgrade instance.")]
         [SerializeField] private string upgradeId;
+        [Tooltip("Avatar/icon shown for this staff member in the upgrade panel.")]
+        [SerializeField] private Sprite avatarSprite;
 
         [Header("Upgrade Levels")]
         [SerializeField] private List<UpgradeLevel> upgradeLevels = new List<UpgradeLevel>();
 
         public string UpgradeId => upgradeId;
+        public Sprite AvatarSprite => avatarSprite;
         public int MaxLevel => upgradeLevels.Count;
 
         /// <summary>Returns the upgrade level at the given 0-based index, or null if out of range.</summary>

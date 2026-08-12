@@ -71,6 +71,9 @@ namespace RestaurantTycoon
         private Vector3 stopPosition;
         private Vector3[] departWaypoints;     // stop → destroy
         private Vector3 destroyPosition;
+        private Transform cinematicFocusTarget;
+        private bool playCinematicFocusOnArrival;
+        private string cinematicFocusPrefsKey;
 
         // ── Internal ──────────────────────────────────────────────────────────
         private string carId;
@@ -108,13 +111,18 @@ namespace RestaurantTycoon
         /// <param name="approach">Waypoints from spawn to stop (including stop as last element).</param>
         /// <param name="depart">Waypoints from stop to destroy (including destroy as last element).</param>
         public void Initialize(RTIngredientType itemType, int payment,
-                               Vector3[] approach, Vector3[] depart, Transform dropPoint = null)
+                               Vector3[] approach, Vector3[] depart, Transform dropPoint = null,
+                               Transform firstFocusTarget = null, bool playFirstFocus = false,
+                               string firstFocusPrefsKey = null)
         {
             orderedItemType = itemType;
             orderPayment    = payment;
             approachWaypoints = approach;
             departWaypoints   = depart;
             moneyDropPoint    = dropPoint;
+            cinematicFocusTarget = firstFocusTarget;
+            playCinematicFocusOnArrival = playFirstFocus;
+            cinematicFocusPrefsKey = firstFocusPrefsKey;
 
             stopPosition    = approach[approach.Length - 1];
             destroyPosition = depart[depart.Length - 1];
@@ -159,8 +167,27 @@ namespace RestaurantTycoon
 
             string foodName = orderedItemType != null ? orderedItemType.displayName : "food";
             DynamicMissionManager.Instance?.RegisterDriveThruMission(carId, foodName);
+            PlayFirstCinematicFocusIfNeeded();
 
             timeoutCoroutine = StartCoroutine(TimeoutCoroutine());
+        }
+
+        private void PlayFirstCinematicFocusIfNeeded()
+        {
+            if (!playCinematicFocusOnArrival)
+                return;
+
+            if (!string.IsNullOrEmpty(cinematicFocusPrefsKey))
+            {
+                if (PlayerPrefs.GetInt(cinematicFocusPrefsKey, 0) == 1)
+                    return;
+
+                PlayerPrefs.SetInt(cinematicFocusPrefsKey, 1);
+                PlayerPrefs.Save();
+            }
+
+            RTTutorialCameraFocus.Play(cinematicFocusTarget != null ? cinematicFocusTarget : transform);
+            playCinematicFocusOnArrival = false;
         }
 
         private void DriveAway()
@@ -330,7 +357,7 @@ namespace RestaurantTycoon
                 if (RTLevelManager.Instance != null)
                     RTLevelManager.Instance.RegisterMoneyEarned(orderPayment);
                 else
-                    CurrencyManager.Instance?.AddMoney(orderPayment);
+                    CurrencyManager.Instance?.AddMoney(RTRewardedAdSystem.ApplyMoneyMultiplier(orderPayment));
                 return;
             }
 

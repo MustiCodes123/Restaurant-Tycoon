@@ -61,6 +61,7 @@ namespace RestaurantTycoon
 
         // ── Runtime ───────────────────────────────────────────────────────────
         private NavMeshAgent agent;
+        private float currentRewardSpeedMultiplier = 1f;
         private RTPorterState currentState = RTPorterState.Idle;
         private List<RTIngredient> heldIngredients = new List<RTIngredient>();
         private float searchTimer;
@@ -83,8 +84,15 @@ namespace RestaurantTycoon
         {
             float clamped = Mathf.Max(0.5f, newSpeed);
             moveSpeed = clamped;
-            if (agent != null) agent.speed = clamped;
+            ApplyRewardSpeedMultiplier();
             Debug.Log($"[RTPorterController] Porter speed upgraded to {clamped}");
+        }
+
+        public void ApplyRewardSpeedMultiplier()
+        {
+            currentRewardSpeedMultiplier = RTRewardedAdSystem.CharacterSpeedMultiplier;
+            if (agent != null)
+                agent.speed = moveSpeed * currentRewardSpeedMultiplier;
         }
 
         /// <summary>Sets how many ingredients the porter carries per trip.</summary>
@@ -101,7 +109,7 @@ namespace RestaurantTycoon
             agent = GetComponent<NavMeshAgent>();
             if (agent != null)
             {
-                agent.speed = moveSpeed;
+                ApplyRewardSpeedMultiplier();
                 agent.stoppingDistance = 0.3f;
             }
 

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace RestaurantTycoon
@@ -32,17 +33,40 @@ namespace RestaurantTycoon
         [Header("Upgrade Spot")]
         [Tooltip("The RTUpgradeSpot that handles player interaction.")]
         [SerializeField] private RTUpgradeSpot upgradeSpot;
+        [Tooltip("Enable only if you still want the old world-space upgrade spot to appear.")]
+        [SerializeField] private bool useWorldUpgradeSpot = false;
 
         // ── Runtime ───────────────────────────────────────────────────────────
         private int currentLevel = 0;
         private IUpgradeableStaff staffInterface;
         private bool hasStarted = false; // guards against OnEnable running before Start
+        private bool isRewardedUpgradePending;
+        private bool hasLoadedState;
 
         private string SaveKey => $"RTStaffUpgrade_{(upgradeData != null ? upgradeData.UpgradeId : gameObject.name)}";
 
+        public event Action OnUpgradeChanged;
+
+        public RTStaffUpgradeData UpgradeData => upgradeData;
+        public string UpgradeId => upgradeData != null ? upgradeData.UpgradeId : gameObject.name;
         public int CurrentLevel => currentLevel;
+        public int MaxLevel => upgradeData != null ? upgradeData.MaxLevel : 0;
         public bool CanUpgrade => upgradeData != null && currentLevel < upgradeData.MaxLevel;
+        public bool IsMaxed => upgradeData != null && currentLevel >= upgradeData.MaxLevel;
         public RTStaffUpgradeData.UpgradeLevel NextLevel => upgradeData?.GetLevel(currentLevel);
+        public int RequiredPlayerLevel => NextLevel != null ? NextLevel.requiredPlayerLevel : 0;
+        public bool IsUnlockedForCurrentPlayerLevel
+        {
+            get
+            {
+                if (!CanUpgrade || NextLevel == null) return false;
+                int playerLevel = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+                return playerLevel >= NextLevel.requiredPlayerLevel;
+            }
+        }
+        public bool IsInteractionAvailable => isActiveAndEnabled && IsUnlockedForCurrentPlayerLevel;
+        public bool CanAffordNextLevel =>
+            CanUpgrade && CurrencyManager.Instance != null && CurrencyManager.Instance.CurrentMoney >= NextLevel.cost;
 
         // ── Unity ─────────────────────────────────────────────────────────────
 
@@ -167,9 +191,67 @@ namespace RestaurantTycoon
 
             ApplyCurrentUpgrade();
             CheckAvailability();
+            OnUpgradeChanged?.Invoke();
 
             if (AudioManager.Instance != null)
                 AudioManager.Instance.PlaySFX(SoundEffect.CustomerServed);
+        }
+
+        public bool TryPurchaseNextLevelWithMoney()
+        {
+            EnsureStateLoaded();
+
+            if (!CanUpgrade || !IsInteractionAvailable || NextLevel == null)
+                return false;
+
+            if (CurrencyManager.Instance == null)
+            {
+                Debug.LogWarning("[RTStaffUpgrade] CurrencyManager not found.");
+                return false;
+            }
+
+            int cost = Mathf.Max(0, NextLevel.cost);
+            if (cost > 0 && !CurrencyManager.Instance.SpendMoney(cost))
+                return false;
+
+            CompleteUpgrade();
+            return true;
+        }
+
+        public void RequestRewardedAdUpgrade(Action onFinished = null)
+        {
+            EnsureStateLoaded();
+
+            if (!CanUpgrade || !IsInteractionAvailable || isRewardedUpgradePending)
+                return;
+
+            if (AdsManager.Instance == null)
+            {
+                Debug.LogWarning("[RTStaffUpgrade] AdsManager not found in scene.");
+                onFinished?.Invoke();
+                return;
+            }
+
+            isRewardedUpgradePending = true;
+            AdsManager.Instance.ShowRewardedAd(
+                onRewardEarned: _ =>
+                {
+                    if (CanUpgrade)
+                        CompleteUpgrade();
+                },
+                onClosed: () =>
+                {
+                    isRewardedUpgradePending = false;
+                    AdsManager.Instance.LoadRewardedAd();
+                    onFinished?.Invoke();
+                });
+        }
+
+        public void EnsureStateLoaded()
+        {
+            if (hasLoadedState) return;
+            if (upgradeData == null) return;
+            LoadState();
         }
 
         // ── Private ───────────────────────────────────────────────────────────
@@ -194,29 +276,34 @@ namespace RestaurantTycoon
 
         private void CheckAvailability()
         {
-            if (upgradeSpot == null) return;
-
             if (!CanUpgrade)
             {
                 RemoveCurrentMission();
-                upgradeSpot.Hide();
+                if (upgradeSpot != null)
+                    upgradeSpot.Hide();
                 return;
             }
 
-            int playerLevel = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
-            if (playerLevel >= NextLevel.requiredPlayerLevel)
+            if (IsUnlockedForCurrentPlayerLevel)
             {
                 // Register the mission when the spot first becomes available.
                 string staffName = upgradeData.UpgradeId;
                 DynamicMissionManager.Instance?.RegisterStaffUpgradeMission(
                     upgradeData.UpgradeId, staffName, currentLevel + 1);
-                upgradeSpot.Show(this);
+
+                if (useWorldUpgradeSpot && upgradeSpot != null)
+                    upgradeSpot.Show(this);
+                else if (upgradeSpot != null)
+                    upgradeSpot.Hide();
             }
             else
             {
                 RemoveCurrentMission();
-                upgradeSpot.Hide();
+                if (upgradeSpot != null)
+                    upgradeSpot.Hide();
             }
+
+            OnUpgradeChanged?.Invoke();
         }
 
         private void RemoveCurrentMission()
@@ -231,6 +318,7 @@ namespace RestaurantTycoon
             // Clamp in case the SO was edited after save.
             if (upgradeData != null)
                 currentLevel = Mathf.Clamp(currentLevel, 0, upgradeData.MaxLevel);
+            hasLoadedState = true;
         }
 
         private void SaveState()

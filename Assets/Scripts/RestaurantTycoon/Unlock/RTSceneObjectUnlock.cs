@@ -24,6 +24,18 @@ namespace RestaurantTycoon
         [Tooltip("Placeholder visuals, lock icons, etc. that disappear on unlock.")]
         [SerializeField] private List<GameObject> objectsToHide = new List<GameObject>();
 
+        [Header("Future Unlock Preview")]
+        [Tooltip("Subtle locked tile / lock icon preview objects shown before this area is unlocked.")]
+        [SerializeField] private List<GameObject> lockedPreviewObjects = new List<GameObject>();
+        [Tooltip("Show preview before the required player level is reached.")]
+        [SerializeField] private bool showPreviewBeforeRequiredLevel = true;
+        [Tooltip("Keep preview visible while the unlock spot is available, until the player completes the unlock.")]
+        [SerializeField] private bool showPreviewWhenUnlockAvailable = true;
+
+        [Header("Cinematic Tutorial")]
+        [Tooltip("Optional explicit targets to show after unlock. If empty, RTStall objects are auto-detected from Objects To Enable.")]
+        [SerializeField] private List<Transform> cinematicFocusTargets = new List<Transform>();
+
         [Header("Save Key")]
         [SerializeField] private string saveKeyOverride;
 
@@ -33,6 +45,7 @@ namespace RestaurantTycoon
 
         // ── Runtime ──────────────────────────────────────────────────────────
         private bool isUnlocked = false;
+        private bool hasPlayedAvailabilityFocus = false;
 
         private string SaveKey => string.IsNullOrEmpty(saveKeyOverride)
             ? $"RTSceneObjectUnlock_{unlockData?.UnlockName ?? gameObject.name}"
@@ -77,7 +90,11 @@ namespace RestaurantTycoon
                 RTLevelManager.Instance.OnLevelLoaded += OnPlayerLevelUp;
             }
 
+            if (DynamicMissionManager.Instance != null)
+                DynamicMissionManager.Instance.OnMissionShown += OnDynamicMissionShown;
+
             CheckUnlockAvailability();
+            PlayAvailabilityFocusIfMissionAlreadyShown();
         }
 
         private System.Collections.IEnumerator DelayedHideLockedObjects()
@@ -101,6 +118,9 @@ namespace RestaurantTycoon
                 RTLevelManager.Instance.OnLevelUp     -= OnPlayerLevelUp;
                 RTLevelManager.Instance.OnLevelLoaded -= OnPlayerLevelUp;
             }
+
+            if (DynamicMissionManager.Instance != null)
+                DynamicMissionManager.Instance.OnMissionShown -= OnDynamicMissionShown;
         }
 
         private void OnPlayerLevelUp(int newLevel) => CheckUnlockAvailability();
@@ -112,12 +132,14 @@ namespace RestaurantTycoon
             if (isUnlocked)
             {
                 HideUnlockSpot();
+                RefreshLockedPreview();
                 return;
             }
 
             if (unlockData == null)
             {
                 HideUnlockSpot();
+                RefreshLockedPreview();
                 return;
             }
 
@@ -138,6 +160,8 @@ namespace RestaurantTycoon
                 Debug.Log($"[RTSceneObjectUnlock] '{unlockData.UnlockName}' not yet available. Level {playerLevel} / {unlockData.RequiredPlayerLevel}");
                 OnUnlockUnavailable?.Invoke();
             }
+
+            RefreshLockedPreview(playerLevel);
         }
 
         /// <summary>Called by RTSceneObjectUnlockSpot when payment is complete.</summary>
@@ -154,9 +178,13 @@ namespace RestaurantTycoon
             foreach (var obj in objectsToHide)
                 if (obj != null) obj.SetActive(false);
 
+            HideLockedPreview();
+
             // Enable unlocked objects with pop animation
             foreach (var obj in objectsToEnable)
                 if (obj != null) ActivateWithPop(obj);
+
+            PlayCinematicCameraTutorial();
 
             OnUnlocked?.Invoke();
             DynamicMissionManager.Instance?.CompleteSceneObjectUnlockMission(unlockData?.UnlockName);
@@ -184,6 +212,8 @@ namespace RestaurantTycoon
 
                 foreach (var obj in objectsToHide)
                     if (obj != null) obj.SetActive(false);
+
+                HideLockedPreview();
             }
             else
             {
@@ -193,6 +223,51 @@ namespace RestaurantTycoon
 
                 foreach (var obj in objectsToHide)
                     if (obj != null) obj.SetActive(true);
+
+                RefreshLockedPreview();
+            }
+        }
+
+        private void RefreshLockedPreview(int playerLevel = -1)
+        {
+            if (lockedPreviewObjects.Count == 0)
+                return;
+
+            if (isUnlocked || unlockData == null)
+            {
+                HideLockedPreview();
+                return;
+            }
+
+            if (playerLevel < 0)
+                playerLevel = RTLevelManager.Instance != null ? RTLevelManager.Instance.CurrentLevel : 1;
+
+            bool isAvailable = playerLevel >= unlockData.RequiredPlayerLevel;
+            bool shouldShow = isAvailable ? showPreviewWhenUnlockAvailable : showPreviewBeforeRequiredLevel;
+            SetLockedPreviewVisible(shouldShow);
+        }
+
+        private void HideLockedPreview()
+        {
+            SetLockedPreviewVisible(false);
+        }
+
+        private void SetLockedPreviewVisible(bool visible)
+        {
+            foreach (var obj in lockedPreviewObjects)
+            {
+                if (obj == null)
+                    continue;
+
+                if (visible)
+                    obj.SetActive(true);
+
+                obj.SendMessage(
+                    visible ? "ShowLocked" : "HideLocked",
+                    SendMessageOptions.DontRequireReceiver);
+
+                if (!visible)
+                    obj.SetActive(false);
             }
         }
 
@@ -227,11 +302,81 @@ namespace RestaurantTycoon
                 .OnComplete(() => obj.transform.DOPunchRotation(new Vector3(0, 0, 5f), 0.3f, 10, 1f));
         }
 
+        private void PlayAvailabilityCameraTutorial()
+        {
+            if (hasPlayedAvailabilityFocus) return;
+
+            hasPlayedAvailabilityFocus = true;
+            PlayCinematicCameraTutorial();
+        }
+
+        private void OnDynamicMissionShown(DynamicMission mission)
+        {
+            if (mission == null || isUnlocked || unlockData == null) return;
+
+            if (mission.missionId == MissionId)
+                PlayAvailabilityCameraTutorial();
+        }
+
+        private void PlayAvailabilityFocusIfMissionAlreadyShown()
+        {
+            if (isUnlocked || unlockData == null || DynamicMissionManager.Instance == null) return;
+
+            if (DynamicMissionManager.Instance.HasShownMission(MissionId))
+                PlayAvailabilityCameraTutorial();
+        }
+
+        private string MissionId => $"UnlockSceneObject_{unlockData.UnlockName}";
+
+        private void PlayCinematicCameraTutorial()
+        {
+            List<Transform> targets = new List<Transform>();
+
+            foreach (Transform target in cinematicFocusTargets)
+                if (target != null)
+                    targets.Add(target);
+
+            if (targets.Count == 0)
+            {
+                foreach (GameObject obj in objectsToEnable)
+                {
+                    if (obj == null) continue;
+
+                    RTStall stall = obj.GetComponentInChildren<RTStall>(true);
+                    if (stall != null)
+                    {
+                        AddTarget(targets, stall.IngredientContainer);
+                        AddTarget(targets, stall.CookInputContainer);
+                        AddTarget(targets, stall.CookingSpot);
+                    }
+                    else
+                    {
+                        AddTarget(targets, obj.transform);
+                    }
+                }
+            }
+
+            RTTutorialCameraFocus.PlaySequence(targets);
+        }
+
+        private static void AddTarget(List<Transform> targets, Component component)
+        {
+            if (component != null)
+                AddTarget(targets, component.transform);
+        }
+
+        private static void AddTarget(List<Transform> targets, Transform target)
+        {
+            if (target != null && !targets.Contains(target))
+                targets.Add(target);
+        }
+
         [ContextMenu("Reset Unlock State")]
         public void ResetUnlockState()
         {
             PlayerPrefs.DeleteKey(SaveKey);
             isUnlocked = false;
+            hasPlayedAvailabilityFocus = false;
             ApplyUnlockState();
             CheckUnlockAvailability();
         }

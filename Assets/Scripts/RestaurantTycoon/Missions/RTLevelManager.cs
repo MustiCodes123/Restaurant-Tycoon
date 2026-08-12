@@ -132,6 +132,8 @@ namespace RestaurantTycoon
         {
             if (amount <= 0) return;
 
+            amount = RTRewardedAdSystem.ApplyMoneyMultiplier(amount);
+
             // Global wallet
             if (CurrencyManager.Instance != null)
                 CurrencyManager.Instance.AddMoney(amount);
@@ -205,4 +207,5 @@ namespace RestaurantTycoon
                 Debug.Log($"[RTLevelManager] {message}");
         }
     }
+
 }

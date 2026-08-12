@@ -47,7 +47,7 @@ namespace RestaurantTycoon
         [Header("Player")]
         [SerializeField] private RTPlayerCarryController playerCarryController;
 
-        [Header("Arrow")]
+        [Header("Arrow (Legacy)")]
         [SerializeField] private RTPlayerArrow playerArrow;
 
         [Header("Debug")]
@@ -113,9 +113,7 @@ namespace RestaurantTycoon
             DynamicMissionManager.Instance?.RegisterTutorialStep(StepId(step), StepText(step));
             Log($"Step {step} started: {StepText(step)}");
 
-            // Point the arrow
-            if (playerArrow != null)
-                playerArrow.SetTutorialOverrideTarget(StepArrowTarget(step));
+            RTTutorialCameraFocus.Play(StepFocusTarget(step));
         }
 
         private void CompleteTutorial()
@@ -153,7 +151,7 @@ namespace RestaurantTycoon
             }
         }
 
-        private Transform StepArrowTarget(int step)
+        private Transform StepFocusTarget(int step)
         {
             switch (step)
             {

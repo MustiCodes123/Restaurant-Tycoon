@@ -259,6 +259,9 @@ public class LevelPanelUI : MonoBehaviour
     
     private void OnDynamicMissionAdded(DynamicMission mission)
     {
+        if (mission.missionType == DynamicMissionType.DriveThruOrder)
+            return;
+
         AddDynamicMissionUI(mission);
     }
     
@@ -283,6 +286,9 @@ public class LevelPanelUI : MonoBehaviour
     
     private void AddDynamicMissionUI(DynamicMission mission)
     {
+        if (mission.missionType == DynamicMissionType.DriveThruOrder)
+            return;
+
         // Don't add if already exists
         if (activeDynamicMissionUIs.ContainsKey(mission.missionId))
         {
@@ -308,6 +314,7 @@ public class LevelPanelUI : MonoBehaviour
         {
             dynamicUI.Setup(mission);
             activeDynamicMissionUIs[mission.missionId] = dynamicUI;
+            DynamicMissionManager.Instance?.NotifyMissionShown(mission.missionId);
             Debug.Log($"[LevelPanelUI] Added dynamic mission UI: {mission.displayText}");
         }
         else
@@ -316,6 +323,7 @@ public class LevelPanelUI : MonoBehaviour
             dynamicUI = missionObj.AddComponent<DynamicMissionUI>();
             dynamicUI.Setup(mission);
             activeDynamicMissionUIs[mission.missionId] = dynamicUI;
+            DynamicMissionManager.Instance?.NotifyMissionShown(mission.missionId);
             Debug.Log($"[LevelPanelUI] Added dynamic mission UI (with added component): {mission.displayText}");
         }
     }

@@ -144,7 +144,7 @@ namespace RestaurantTycoon
                 if (RTLevelManager.Instance != null)
                     RTLevelManager.Instance.RegisterMoneyEarned(moneyAmount);
                 else if (CurrencyManager.Instance != null)
-                    CurrencyManager.Instance.AddMoney(moneyAmount);
+                    CurrencyManager.Instance.AddMoney(RTRewardedAdSystem.ApplyMoneyMultiplier(moneyAmount));
             }
 
             front.OnServedAtCashier();

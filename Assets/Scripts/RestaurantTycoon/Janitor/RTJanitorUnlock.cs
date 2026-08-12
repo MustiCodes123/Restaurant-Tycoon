@@ -35,6 +35,10 @@ namespace RestaurantTycoon
         [Header("Objects to Show on Unlock")]
         [SerializeField] private List<GameObject> objectsToShow = new List<GameObject>();
 
+        [Header("Cinematic Tutorial")]
+        [Tooltip("Optional explicit targets to show after this janitor unlocks. If empty, the spawned janitor is shown.")]
+        [SerializeField] private List<Transform> cinematicFocusTargets = new List<Transform>();
+
         [Header("Save Key")]
         [SerializeField] private string saveKeyOverride;
 
@@ -143,6 +147,7 @@ namespace RestaurantTycoon
                 if (obj != null) ActivateWithPop(obj);
 
             SpawnJanitor();
+            PlayUnlockCameraTutorial();
             DynamicMissionManager.Instance?.CompleteJanitorUnlockMission(unlockData?.JanitorName);
             OnJanitorUnlocked?.Invoke();
             Debug.Log($"[RTJanitorUnlock] Janitor '{unlockData?.JanitorName}' unlocked!");
@@ -231,6 +236,18 @@ namespace RestaurantTycoon
             Vector3 original = t.localScale;
             t.localScale = Vector3.zero;
             t.DOScale(original, popDuration).SetEase(popEase);
+        }
+
+        private void PlayUnlockCameraTutorial()
+        {
+            if (cinematicFocusTargets != null && cinematicFocusTargets.Count > 0)
+            {
+                RTTutorialCameraFocus.PlaySequence(cinematicFocusTargets);
+                return;
+            }
+
+            if (spawnedJanitor != null)
+                RTTutorialCameraFocus.Play(spawnedJanitor.transform);
         }
 
         [ContextMenu("Reset Unlock State")]
