@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTSceneObjectUnlockData
   requiredPlayerLevel: 25
   unlockCost: 100
-  unlockName: Sofa
+  unlockName: 2nd Sofa
   description: 

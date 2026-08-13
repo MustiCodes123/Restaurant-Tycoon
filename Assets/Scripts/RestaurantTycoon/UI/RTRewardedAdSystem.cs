@@ -43,9 +43,14 @@ namespace RestaurantTycoon
         [System.Serializable]
         private class IngredientRefillTarget
         {
-            [Tooltip("The stall counter that represents whether this ingredient source is unlocked.")]
+            [Tooltip("The stall counter that represents whether this cook input is unlocked.")]
             public RTCustomerCounter availabilityCounter;
+            [Tooltip("Used to infer the stall, cook input, and ingredient prefab when those fields are not assigned.")]
             public RTIngredientContainer ingredientContainer;
+            [Tooltip("The cook input container to refill. If empty, this is inferred from the stall that owns Ingredient Container.")]
+            public RTCookInputContainer cookInputContainer;
+            [Tooltip("Optional override. If empty, the prefab from Ingredient Container is used.")]
+            public GameObject ingredientPrefab;
         }
 
         [Header("Reward Icons")]
@@ -66,16 +71,16 @@ namespace RestaurantTycoon
         [SerializeField] private Button confirmationCancelButton;
         [SerializeField] private TextMeshProUGUI confirmationDescriptionText;
         [SerializeField] private string refillShelfDescription = "Watch an ad to refill shelf stock.";
-        [SerializeField] private string refillIngredientDescription = "Watch an ad to refill ingredient storage.";
+        [SerializeField] private string refillIngredientDescription = "Watch an ad to refill the cook input.";
         [SerializeField] private string doubleMoneyDescription = "Watch an ad to earn 2x money for 3 minutes.";
         [SerializeField] private string speedBoostDescription = "Watch an ad to boost all characters for 30 seconds.";
 
         [Header("Reward Targets")]
         [Tooltip("Output shelves to refill. Assign the shelf and the finished item prefab for that shelf.")]
         [SerializeField] private List<ShelfRefillTarget> shelfRefillTargets = new List<ShelfRefillTarget>();
-        [Tooltip("Ingredient sources to refill. Assign the matching stall counter so locked stalls stay empty.")]
+        [Tooltip("Cook input containers to refill. Assign the matching stall counter so locked stalls stay empty.")]
         [SerializeField] private List<IngredientRefillTarget> ingredientRefillTargets = new List<IngredientRefillTarget>();
-        [Tooltip("Legacy fallback. Prefer Ingredient Refill Targets when a stall unlock check is required.")]
+        [Tooltip("Legacy fallback. These ingredient containers are used to infer their stall cook input and ingredient prefab.")]
         [SerializeField] private List<RTIngredientContainer> ingredientContainers = new List<RTIngredientContainer>();
         [SerializeField] private bool autoFindMissingRewardTargets = true;
 
@@ -316,19 +321,24 @@ namespace RestaurantTycoon
         {
             foreach (var target in ingredientRefillTargets)
             {
-                if (target == null || target.ingredientContainer == null)
+                if (target == null)
                     continue;
 
                 if (!IsIngredientTargetUnlocked(target))
                     continue;
 
-                target.ingredientContainer.RefillAllEmptySlotsImmediate();
+                RTCookInputContainer cookInput = ResolveCookInputContainer(target);
+                GameObject ingredientPrefab = ResolveIngredientPrefab(target);
+                RefillCookInput(cookInput, ingredientPrefab, target.ingredientContainer);
             }
 
             foreach (var container in ingredientContainers)
             {
-                if (container != null && container.gameObject.activeInHierarchy && IsIngredientContainerUnlocked(container))
-                    container.RefillAllEmptySlotsImmediate();
+                if (container == null || !IsIngredientContainerUnlocked(container))
+                    continue;
+
+                RTStall stall = FindStallForIngredientContainer(container);
+                RefillCookInput(stall != null ? stall.CookInputContainer : null, container.IngredientPrefab, container);
             }
         }
 
@@ -349,7 +359,14 @@ namespace RestaurantTycoon
             if (target.availabilityCounter != null)
                 return IsCounterUnlocked(target.availabilityCounter);
 
-            return IsIngredientContainerUnlocked(target.ingredientContainer);
+            if (target.ingredientContainer != null)
+                return IsIngredientContainerUnlocked(target.ingredientContainer);
+
+            RTStall stall = FindStallForCookInputContainer(target.cookInputContainer);
+            if (stall != null && stall.CustomerCounter != null)
+                return IsCounterUnlocked(stall.CustomerCounter);
+
+            return target.cookInputContainer != null && target.cookInputContainer.gameObject.activeInHierarchy;
         }
 
         private bool IsIngredientContainerUnlocked(RTIngredientContainer container)
@@ -404,6 +421,71 @@ namespace RestaurantTycoon
             return null;
         }
 
+        private RTStall FindStallForCookInputContainer(RTCookInputContainer cookInputContainer)
+        {
+            if (cookInputContainer == null)
+                return null;
+
+            foreach (var stall in FindObjectsByType<RTStall>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (stall != null && stall.CookInputContainer == cookInputContainer)
+                    return stall;
+            }
+
+            return null;
+        }
+
+        private RTCookInputContainer ResolveCookInputContainer(IngredientRefillTarget target)
+        {
+            if (target == null)
+                return null;
+
+            if (target.cookInputContainer != null)
+                return target.cookInputContainer;
+
+            RTStall stall = FindStallForIngredientContainer(target.ingredientContainer);
+            return stall != null ? stall.CookInputContainer : null;
+        }
+
+        private GameObject ResolveIngredientPrefab(IngredientRefillTarget target)
+        {
+            if (target == null)
+                return null;
+
+            if (target.ingredientPrefab != null)
+                return target.ingredientPrefab;
+
+            return target.ingredientContainer != null ? target.ingredientContainer.IngredientPrefab : null;
+        }
+
+        private void RefillCookInput(RTCookInputContainer cookInputContainer, GameObject ingredientPrefab, RTIngredientContainer sourceContainer)
+        {
+            if (cookInputContainer == null || ingredientPrefab == null || !cookInputContainer.gameObject.activeInHierarchy)
+                return;
+
+            for (int i = 0; i < cookInputContainer.SlotCount && !cookInputContainer.IsFull; i++)
+            {
+                Vector3 spawnPosition = sourceContainer != null
+                    ? sourceContainer.transform.position + Vector3.up * 1.5f
+                    : cookInputContainer.transform.position + Vector3.up * 1.5f;
+
+                GameObject obj = Instantiate(ingredientPrefab, spawnPosition, Quaternion.identity);
+                RTIngredient ingredient = obj.GetComponent<RTIngredient>();
+                if (ingredient == null)
+                {
+                    Debug.LogWarning($"[RTRewardedAdSystem] Ingredient refill prefab '{ingredientPrefab.name}' is missing RTIngredient.");
+                    Destroy(obj);
+                    return;
+                }
+
+                if (!cookInputContainer.ReceiveIngredient(ingredient))
+                {
+                    Destroy(obj);
+                    return;
+                }
+            }
+        }
+
         private void ActivateDoubleMoney()
         {
             if (doubleMoneyCoroutine != null)
@@ -442,9 +524,6 @@ namespace RestaurantTycoon
 
         private void ApplySpeedMultiplierToActiveCharacters()
         {
-            foreach (var player in FindObjectsByType<RTPlayerController>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-                player.ApplyRewardSpeedMultiplier();
-
             foreach (var customer in FindObjectsByType<RTCustomer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
                 customer.ApplyRewardSpeedMultiplier();
 

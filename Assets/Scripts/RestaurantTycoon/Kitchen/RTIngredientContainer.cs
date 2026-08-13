@@ -64,6 +64,7 @@ namespace RestaurantTycoon
             }
         }
         public bool IsFull => StockedCount >= stockSlots.Count;
+        public GameObject IngredientPrefab => ingredientPrefab;
 
         public void RefillAllEmptySlotsImmediate()
         {

@@ -49,7 +49,6 @@ namespace RestaurantTycoon
 
         public void ApplyRewardSpeedMultiplier()
         {
-            // Movement reads RTRewardedAdSystem.CharacterSpeedMultiplier each frame.
         }
 
         private void Start()
@@ -109,7 +108,7 @@ namespace RestaurantTycoon
                 camRight.Normalize();
 
                 Vector3 moveDirection = (camForward * vertical + camRight * horizontal).normalized;
-                Vector3 movement = moveDirection * moveSpeed * RTRewardedAdSystem.CharacterSpeedMultiplier * movementInputMagnitude * Time.deltaTime;
+                Vector3 movement = moveDirection * moveSpeed * movementInputMagnitude * Time.deltaTime;
                 characterController.Move(movement);
 
                 if (moveDirection != Vector3.zero)
