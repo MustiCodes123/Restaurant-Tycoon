@@ -34,8 +34,11 @@ namespace RestaurantTycoon
         [System.Serializable]
         private class ShelfRefillTarget
         {
-            [Tooltip("Optional. If assigned, this shelf refills only while this counter GameObject is active/unlocked.")]
+            [Tooltip("The counter to refill. Also used as the unlock/availability check when assigned.")]
+            public RTCustomerCounter customerCounter;
+            [Tooltip("Optional legacy availability check. Prefer Customer Counter for new setup.")]
             public RTCustomerCounter availabilityCounter;
+            [Tooltip("Legacy reference. Used only to infer the stall/counter or as the visual source point.")]
             public RTItemOutputContainer outputContainer;
             public GameObject finishedItemPrefab;
         }
@@ -76,7 +79,7 @@ namespace RestaurantTycoon
         [SerializeField] private string speedBoostDescription = "Watch an ad to boost all characters for 30 seconds.";
 
         [Header("Reward Targets")]
-        [Tooltip("Output shelves to refill. Assign the shelf and the finished item prefab for that shelf.")]
+        [Tooltip("Customer counters to refill. Assign the counter and the finished item prefab for that counter.")]
         [SerializeField] private List<ShelfRefillTarget> shelfRefillTargets = new List<ShelfRefillTarget>();
         [Tooltip("Cook input containers to refill. Assign the matching stall counter so locked stalls stay empty.")]
         [SerializeField] private List<IngredientRefillTarget> ingredientRefillTargets = new List<IngredientRefillTarget>();
@@ -307,13 +310,18 @@ namespace RestaurantTycoon
         {
             foreach (var target in shelfRefillTargets)
             {
-                if (target == null || target.outputContainer == null)
+                if (target == null)
                     continue;
 
-                if (!IsShelfTargetUnlocked(target))
+                RTCustomerCounter counter = ResolveShelfCounter(target);
+                if (counter == null)
                     continue;
 
-                target.outputContainer.RefillAllEmptySlots(target.finishedItemPrefab);
+                if (!IsShelfTargetUnlocked(target, counter))
+                    continue;
+
+                Transform sourcePoint = target.outputContainer != null ? target.outputContainer.transform : null;
+                counter.RefillAllEmptySlots(target.finishedItemPrefab, sourcePoint);
             }
         }
 
@@ -342,8 +350,11 @@ namespace RestaurantTycoon
             }
         }
 
-        private bool IsShelfTargetUnlocked(ShelfRefillTarget target)
+        private bool IsShelfTargetUnlocked(ShelfRefillTarget target, RTCustomerCounter resolvedCounter)
         {
+            if (resolvedCounter != null)
+                return IsCounterUnlocked(resolvedCounter);
+
             if (target.availabilityCounter != null)
                 return IsCounterUnlocked(target.availabilityCounter);
 
@@ -351,7 +362,7 @@ namespace RestaurantTycoon
             if (inferredCounter != null)
                 return IsCounterUnlocked(inferredCounter);
 
-            return target.outputContainer.gameObject.activeInHierarchy;
+            return target.outputContainer != null && target.outputContainer.gameObject.activeInHierarchy;
         }
 
         private bool IsIngredientTargetUnlocked(IngredientRefillTarget target)
@@ -405,6 +416,38 @@ namespace RestaurantTycoon
             }
 
             return inactiveMatch;
+        }
+
+        private RTCustomerCounter ResolveShelfCounter(ShelfRefillTarget target)
+        {
+            if (target == null)
+                return null;
+
+            if (target.customerCounter != null)
+                return target.customerCounter;
+
+            if (target.availabilityCounter != null)
+                return target.availabilityCounter;
+
+            RTStall stall = FindStallForOutputContainer(target.outputContainer);
+            if (stall != null && stall.CustomerCounter != null)
+                return stall.CustomerCounter;
+
+            return FindCounterForFinishedItemPrefab(target.finishedItemPrefab);
+        }
+
+        private RTStall FindStallForOutputContainer(RTItemOutputContainer outputContainer)
+        {
+            if (outputContainer == null)
+                return null;
+
+            foreach (var stall in FindObjectsByType<RTStall>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (stall != null && stall.ItemOutputContainer == outputContainer)
+                    return stall;
+            }
+
+            return null;
         }
 
         private RTStall FindStallForIngredientContainer(RTIngredientContainer container)
