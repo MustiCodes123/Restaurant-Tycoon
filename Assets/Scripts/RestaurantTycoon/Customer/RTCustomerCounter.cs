@@ -70,7 +70,7 @@ namespace RestaurantTycoon
 
         private void Start()
         {
-            storedItems = new RTFinishedItem[itemSlots.Count];
+            EnsureStorageInitialized();
 
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null)
@@ -205,9 +205,70 @@ namespace RestaurantTycoon
 
         private int GetFirstEmptySlot()
         {
+            EnsureStorageInitialized();
+
             for (int i = 0; i < storedItems.Length; i++)
                 if (storedItems[i] == null) return i;
             return -1;
+        }
+
+        public void RefillAllEmptySlots(GameObject finishedItemPrefab, Transform sourcePoint = null)
+        {
+            if (finishedItemPrefab == null)
+            {
+                Debug.LogWarning($"[RTCustomerCounter] Cannot refill '{gameObject.name}' because no finished item prefab was provided.");
+                return;
+            }
+
+            EnsureStorageInitialized();
+
+            for (int i = 0; i < itemSlots.Count; i++)
+            {
+                if (storedItems[i] != null)
+                    continue;
+
+                Transform slot = itemSlots[i];
+                if (slot == null)
+                    continue;
+
+                Vector3 spawnPosition = sourcePoint != null
+                    ? sourcePoint.position
+                    : transform.position + Vector3.up * 1.5f;
+
+                GameObject obj = Instantiate(finishedItemPrefab, spawnPosition, Quaternion.identity);
+                RTFinishedItem finishedItem = obj.GetComponent<RTFinishedItem>();
+                if (finishedItem == null)
+                {
+                    Debug.LogWarning($"[RTCustomerCounter] Refill prefab '{finishedItemPrefab.name}' is missing RTFinishedItem.");
+                    Destroy(obj);
+                    continue;
+                }
+
+                if (acceptedItemType != null && finishedItem.ItemType != acceptedItemType)
+                {
+                    Debug.LogWarning($"[RTCustomerCounter] Refill prefab '{finishedItemPrefab.name}' does not match counter '{gameObject.name}'.");
+                    Destroy(obj);
+                    continue;
+                }
+
+                storedItems[i] = finishedItem;
+                finishedItem.transform.DOJump(slot.position, dropJumpHeight, 1, dropDuration)
+                    .SetEase(Ease.OutQuad)
+                    .OnComplete(() =>
+                    {
+                        finishedItem.transform.position = slot.position;
+                        finishedItem.transform.rotation = slot.rotation;
+                        finishedItem.PlaySpawnAnimation();
+                    });
+
+                OnItemPlaced?.Invoke();
+            }
+        }
+
+        private void EnsureStorageInitialized()
+        {
+            if (storedItems == null || storedItems.Length != itemSlots.Count)
+                storedItems = new RTFinishedItem[itemSlots.Count];
         }
 
         #endregion
