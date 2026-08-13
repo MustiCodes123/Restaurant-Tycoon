@@ -79,7 +79,7 @@ namespace RestaurantTycoon
 
         private void Start()
         {
-            storedIngredients = new RTIngredient[MAX_SLOTS];
+            EnsureStorageInitialized();
             originalLocalPosition = transform.localPosition;
             originalLocalRotation = transform.localRotation;
 
@@ -279,6 +279,8 @@ namespace RestaurantTycoon
 
         private int GetFirstEmptySlot()
         {
+            EnsureStorageInitialized();
+
             for (int i = 0; i < storedIngredients.Length; i++)
             {
                 if (storedIngredients[i] == null) return i;
@@ -352,6 +354,8 @@ namespace RestaurantTycoon
         /// </summary>
         public bool ReceiveIngredient(RTIngredient ingredient)
         {
+            EnsureStorageInitialized();
+
             if (ingredient == null || IsFull) return false;
 
             int slotIndex = GetFirstEmptySlot();
@@ -378,6 +382,12 @@ namespace RestaurantTycoon
             Debug.Log($"[RTCookInputContainer] Porter delivered ingredient to slot {slotIndex}. Stored: {StoredCount}/{SlotCount}");
             OnIngredientAdded?.Invoke();
             return true;
+        }
+
+        private void EnsureStorageInitialized()
+        {
+            if (storedIngredients == null || storedIngredients.Length != MAX_SLOTS)
+                storedIngredients = new RTIngredient[MAX_SLOTS];
         }
 
         #endregion
