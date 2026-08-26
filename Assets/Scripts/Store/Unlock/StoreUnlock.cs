@@ -37,6 +37,7 @@ public class StoreUnlock : MonoBehaviour
     public bool IsUnlocked => isUnlocked;
     public StoreUnlockData UnlockData => unlockData;
     public int UnlockCost => unlockData != null ? unlockData.UnlockCost : 0;
+    public string PaymentProgressKey => $"{SaveKey}_PaymentProgress";
     
     public event Action OnStoreUnlocked;
     public event Action OnUnlockAvailable;
@@ -224,6 +225,21 @@ public class StoreUnlock : MonoBehaviour
         PlayerPrefs.SetInt(SaveKey, isUnlocked ? 1 : 0);
         PlayerPrefs.Save();
     }
+
+    public int LoadPaymentProgress()
+    {
+        return PaymentProgressStore.Load(PaymentProgressKey, UnlockCost);
+    }
+
+    public void SavePaymentProgress(int amount)
+    {
+        PaymentProgressStore.Save(PaymentProgressKey, amount, UnlockCost);
+    }
+
+    public void ClearPaymentProgress()
+    {
+        PaymentProgressStore.Clear(PaymentProgressKey);
+    }
     
     /// <summary>
     /// Activates a GameObject with a pop/wobble animation
@@ -256,6 +272,7 @@ public class StoreUnlock : MonoBehaviour
     public void ResetUnlockState()
     {
         PlayerPrefs.DeleteKey(SaveKey);
+        ClearPaymentProgress();
         isUnlocked = false;
         ApplyUnlockState();
         CheckUnlockAvailability();
