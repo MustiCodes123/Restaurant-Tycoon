@@ -49,6 +49,7 @@ public class StoreUpgrade : MonoBehaviour
         upgradeData?.GetUpgradeLevel(currentUpgradeLevel);
     public string StoreName => parentStore != null ? parentStore.StoreName : upgradeData?.StoreId ?? "Store";
     public string StoreId => upgradeData?.StoreId ?? (parentStore != null ? parentStore.StoreName.Replace(" ", "_") : gameObject.name);
+    public string PaymentProgressKey => $"{SaveKey}_PaymentProgress_Level_{currentUpgradeLevel + 1}";
     
     public event Action<int> OnUpgradeCompleted;
     public event Action OnUpgradeAvailable;
@@ -127,7 +128,8 @@ public class StoreUpgrade : MonoBehaviour
         
         // Activate decoration objects for this upgrade level
         ActivateDecorationsForLevel(currentUpgradeLevel);
-        
+
+        ClearPaymentProgress();
         currentUpgradeLevel++;
         SaveUpgradeState();
         
@@ -327,6 +329,21 @@ public class StoreUpgrade : MonoBehaviour
         PlayerPrefs.SetInt(SaveKey, currentUpgradeLevel);
         PlayerPrefs.Save();
     }
+
+    public int LoadPaymentProgress()
+    {
+        return PaymentProgressStore.Load(PaymentProgressKey, GetCurrentUpgradeCost());
+    }
+
+    public void SavePaymentProgress(int amount)
+    {
+        PaymentProgressStore.Save(PaymentProgressKey, amount, GetCurrentUpgradeCost());
+    }
+
+    public void ClearPaymentProgress()
+    {
+        PaymentProgressStore.Clear(PaymentProgressKey);
+    }
     
     /// <summary>
     /// Resets upgrade state (for testing)
@@ -334,8 +351,10 @@ public class StoreUpgrade : MonoBehaviour
     [ContextMenu("Reset Upgrade State")]
     public void ResetUpgradeState()
     {
+        ClearPaymentProgress();
         PlayerPrefs.DeleteKey(SaveKey);
         currentUpgradeLevel = 0;
+        ClearPaymentProgress();
         ApplyAllCompletedUpgrades();
         CheckUpgradeAvailability();
     }

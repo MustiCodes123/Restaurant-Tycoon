@@ -48,6 +48,7 @@ public class JanitorUnlock : MonoBehaviour
     public JanitorUnlockData UnlockData => unlockData;
     public int UnlockCost => unlockData != null ? unlockData.UnlockCost : 0;
     public JanitorController SpawnedJanitor => spawnedJanitor;
+    public string PaymentProgressKey => $"{SaveKey}_PaymentProgress";
     
     public event Action OnJanitorUnlocked;
     public event Action OnUnlockAvailable;
@@ -123,6 +124,7 @@ public class JanitorUnlock : MonoBehaviour
         if (isUnlocked) return;
         
         isUnlocked = true;
+        ClearPaymentProgress();
         SaveUnlockState();
         
         // Spawn the janitor
@@ -253,6 +255,21 @@ public class JanitorUnlock : MonoBehaviour
         PlayerPrefs.SetInt(SaveKey, isUnlocked ? 1 : 0);
         PlayerPrefs.Save();
     }
+
+    public int LoadPaymentProgress()
+    {
+        return PaymentProgressStore.Load(PaymentProgressKey, UnlockCost);
+    }
+
+    public void SavePaymentProgress(int amount)
+    {
+        PaymentProgressStore.Save(PaymentProgressKey, amount, UnlockCost);
+    }
+
+    public void ClearPaymentProgress()
+    {
+        PaymentProgressStore.Clear(PaymentProgressKey);
+    }
     
     /// <summary>
     /// Activates a GameObject with a pop/wobble animation
@@ -285,6 +302,7 @@ public class JanitorUnlock : MonoBehaviour
     public void ResetUnlockState()
     {
         PlayerPrefs.DeleteKey(SaveKey);
+        ClearPaymentProgress();
         isUnlocked = false;
         
         // Destroy spawned janitor if exists

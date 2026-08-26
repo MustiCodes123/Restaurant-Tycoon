@@ -113,6 +113,7 @@ public class StoreUnlock : MonoBehaviour
         if (isUnlocked) return;
         
         isUnlocked = true;
+        ClearPaymentProgress();
         SaveUnlockState();
         
         // Activate store with pop animation

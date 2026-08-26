@@ -113,6 +113,7 @@ public class TableCleanerUnlockSpot : MonoBehaviour
         if (CurrencyManager.Instance.SpendMoney(paymentAmount))
         {
             currentPayment += paymentAmount;
+            tableCleanerUnlock.SavePaymentProgress(currentPayment);
             
             // Trigger money flow animation
             if (Time.time - lastMoneyFlowTime >= moneyFlowInterval && moneyFlowEffect != null && playerTransform != null)
@@ -139,7 +140,7 @@ public class TableCleanerUnlockSpot : MonoBehaviour
     {
         tableCleanerUnlock = unlock;
         totalCost = unlock.UnlockCost;
-        currentPayment = 0;
+        currentPayment = unlock.LoadPaymentProgress();
         paymentTimer = 0f;
         lastMoneyFlowTime = 0f;
         
@@ -211,7 +212,7 @@ public class TableCleanerUnlockSpot : MonoBehaviour
         
         if (progressFillImage != null)
         {
-            float progress = (float)currentPayment / totalCost;
+            float progress = totalCost > 0 ? (float)currentPayment / totalCost : 0f;
             progressFillImage.fillAmount = progress;
         }
     }
@@ -230,6 +231,7 @@ public class TableCleanerUnlockSpot : MonoBehaviour
         // Notify the TableCleanerUnlock component
         if (tableCleanerUnlock != null)
         {
+            tableCleanerUnlock.ClearPaymentProgress();
             tableCleanerUnlock.CompleteUnlock();
         }
         

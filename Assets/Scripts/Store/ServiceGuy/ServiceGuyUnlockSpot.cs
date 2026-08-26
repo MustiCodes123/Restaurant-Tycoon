@@ -111,6 +111,7 @@ public class ServiceGuyUnlockSpot : MonoBehaviour
         if (CurrencyManager.Instance.SpendMoney(paymentAmount))
         {
             currentPayment += paymentAmount;
+            serviceGuyUnlock.SavePaymentProgress(currentPayment);
             
             if (Time.time - lastMoneyFlowTime >= moneyFlowInterval && moneyFlowEffect != null && playerTransform != null)
             {
@@ -135,7 +136,7 @@ public class ServiceGuyUnlockSpot : MonoBehaviour
     {
         serviceGuyUnlock = unlock;
         totalCost = unlock.UnlockCost;
-        currentPayment = 0;
+        currentPayment = unlock.LoadPaymentProgress();
         paymentTimer = 0f;
         lastMoneyFlowTime = 0f;
         
@@ -199,7 +200,7 @@ public class ServiceGuyUnlockSpot : MonoBehaviour
         
         if (progressFillImage != null)
         {
-            float progress = (float)currentPayment / totalCost;
+            float progress = totalCost > 0 ? (float)currentPayment / totalCost : 0f;
             progressFillImage.fillAmount = progress;
         }
     }
@@ -217,6 +218,7 @@ public class ServiceGuyUnlockSpot : MonoBehaviour
         
         if (serviceGuyUnlock != null)
         {
+            serviceGuyUnlock.ClearPaymentProgress();
             serviceGuyUnlock.CompleteUnlock();
         }
         

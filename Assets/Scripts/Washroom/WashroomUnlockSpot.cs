@@ -92,6 +92,7 @@ public class WashroomUnlockSpot : MonoBehaviour
         if (CurrencyManager.Instance.SpendMoney(paymentAmount))
         {
             currentPayment += paymentAmount;
+            washroomUnlock.SavePaymentProgress(currentPayment);
             
             if (Time.time - lastMoneyFlowTime >= moneyFlowInterval && moneyFlowEffect != null && playerTransform != null)
             {
@@ -116,7 +117,7 @@ public class WashroomUnlockSpot : MonoBehaviour
     {
         washroomUnlock = unlock;
         totalCost = unlock.UnlockCost;
-        currentPayment = 0;
+        currentPayment = unlock.LoadPaymentProgress();
         paymentTimer = 0f;
         
         UpdateUI();
@@ -164,7 +165,7 @@ public class WashroomUnlockSpot : MonoBehaviour
         
         if (progressFillImage != null)
         {
-            float progress = (float)currentPayment / totalCost;
+            float progress = totalCost > 0 ? (float)currentPayment / totalCost : 0f;
             progressFillImage.fillAmount = progress;
         }
     }
@@ -181,6 +182,7 @@ public class WashroomUnlockSpot : MonoBehaviour
         
         if (washroomUnlock != null)
         {
+            washroomUnlock.ClearPaymentProgress();
             washroomUnlock.CompleteUnlock();
         }
         

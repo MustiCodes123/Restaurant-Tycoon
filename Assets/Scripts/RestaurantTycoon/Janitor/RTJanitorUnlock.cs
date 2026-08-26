@@ -58,6 +58,7 @@ namespace RestaurantTycoon
         public RTJanitorUnlockData UnlockData => unlockData;
         public int UnlockCost => unlockData != null ? unlockData.UnlockCost : 0;
         public RTJanitorController SpawnedJanitor => spawnedJanitor;
+        public string PaymentProgressKey => $"{SaveKey}_PaymentProgress";
 
         public event Action OnJanitorUnlocked;
         public event Action OnUnlockAvailable;
@@ -136,6 +137,7 @@ namespace RestaurantTycoon
             if (isUnlocked) return;
 
             isUnlocked = true;
+            ClearPaymentProgress();
             SaveUnlockState();
 
             HideUnlockSpot();
@@ -228,6 +230,21 @@ namespace RestaurantTycoon
             PlayerPrefs.Save();
         }
 
+        public int LoadPaymentProgress()
+        {
+            return PaymentProgressStore.Load(PaymentProgressKey, UnlockCost);
+        }
+
+        public void SavePaymentProgress(int amount)
+        {
+            PaymentProgressStore.Save(PaymentProgressKey, amount, UnlockCost);
+        }
+
+        public void ClearPaymentProgress()
+        {
+            PaymentProgressStore.Clear(PaymentProgressKey);
+        }
+
         private void ActivateWithPop(GameObject obj)
         {
             if (obj == null) return;
@@ -255,6 +272,7 @@ namespace RestaurantTycoon
         {
             isUnlocked = false;
             SaveUnlockState();
+            ClearPaymentProgress();
 
             if (spawnedJanitor != null)
             {

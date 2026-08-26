@@ -93,7 +93,7 @@ namespace RestaurantTycoon
 
             cookUnlock = unlock;
             totalCost = unlock.UnlockCost;
-            currentPayment = 0;
+            currentPayment = unlock.LoadPaymentProgress();
             isPaymentActive = false;
 
             if (cookNameText != null && unlock.UnlockData != null)
@@ -186,10 +186,11 @@ namespace RestaurantTycoon
             amount = Mathf.Min(amount, CurrencyManager.Instance.CurrentMoney);
             if (amount <= 0) return;
 
-            if (CurrencyManager.Instance.SpendMoney(amount))
-            {
-                currentPayment += amount;
-                UpdateUI();
+        if (CurrencyManager.Instance.SpendMoney(amount))
+        {
+            currentPayment += amount;
+            cookUnlock.SavePaymentProgress(currentPayment);
+            UpdateUI();
 
                 if (moneyFlowEffect != null && playerTransform != null &&
                     Time.time - lastMoneyFlowTime >= moneyFlowInterval)
@@ -217,6 +218,7 @@ namespace RestaurantTycoon
                 canvas.transform.DOScale(Vector3.zero, hideDuration).SetEase(hideEase);
             }
 
+            cookUnlock?.ClearPaymentProgress();
             cookUnlock?.CompleteUnlock();
         }
 

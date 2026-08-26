@@ -115,6 +115,7 @@ public class WashroomUnlock : MonoBehaviour
         if (isUnlocked) return;
         
         isUnlocked = true;
+        ClearPaymentProgress();
         SaveUnlockState();
         
         // Activate washroom with pop animation
