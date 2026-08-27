@@ -40,8 +40,22 @@ namespace RestaurantTycoon
         public List<RTDiningSeat> Seats => seats;
         public Transform ItemPlacementPoint => itemPlacementPoint;
         public Vector3 ItemStackOffset => itemStackOffset;
-        public bool HasDirtyDishes => dirtyDishes.Count > 0;
-        public int DirtyDishCount => dirtyDishes.Count;
+        public bool HasDirtyDishes
+        {
+            get
+            {
+                ClearMissingDishes();
+                return dirtyDishes.Count > 0;
+            }
+        }
+        public int DirtyDishCount
+        {
+            get
+            {
+                ClearMissingDishes();
+                return dirtyDishes.Count;
+            }
+        }
 
         public event Action OnDishesCleared;
 
@@ -93,10 +107,19 @@ namespace RestaurantTycoon
         /// </summary>
         public List<RTDirtyDish> TakeAllDirtyDishes()
         {
+            ClearMissingDishes();
             List<RTDirtyDish> taken = new List<RTDirtyDish>(dirtyDishes);
             dirtyDishes.Clear();
             CheckCleanState();
             return taken;
+        }
+
+        public void RemoveDirtyDish(RTDirtyDish dish)
+        {
+            if (dish == null) return;
+
+            if (dirtyDishes.Remove(dish))
+                CheckCleanState();
         }
 
         /// <summary>
@@ -136,6 +159,13 @@ namespace RestaurantTycoon
                 OnDishesCleared?.Invoke();
                 Debug.Log("[RTDiningTable] All dishes cleared, table is clean");
             }
+        }
+
+        private void ClearMissingDishes()
+        {
+            int removed = dirtyDishes.RemoveAll(dish => dish == null);
+            if (removed > 0)
+                CheckCleanState();
         }
 
         #endregion

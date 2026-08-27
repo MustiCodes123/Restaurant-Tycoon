@@ -23,12 +23,37 @@ namespace RestaurantTycoon
         public Transform ApproachPoint => approachPoint;
         public RTDiningTable ParentTable => parentTable;
         public float EatingDuration => eatingDuration;
-        public bool IsOccupied => isOccupied;
-        public bool IsAvailable => !isOccupied && (parentTable == null || !parentTable.HasDirtyDishes);
+        public bool IsOccupied
+        {
+            get
+            {
+                ClearMissingOccupant();
+                return isOccupied;
+            }
+        }
+        public bool IsAvailable
+        {
+            get
+            {
+                ClearMissingOccupant();
+                return !isOccupied && (parentTable == null || !parentTable.HasDirtyDishes);
+            }
+        }
 
         public void Initialize(RTDiningTable table)
         {
             parentTable = table;
+        }
+
+        public Vector3 GetNavigationTargetPosition()
+        {
+            if (approachPoint != null)
+                return approachPoint.position;
+
+            if (sitPoint != null)
+                return sitPoint.position;
+
+            return transform.position;
         }
 
         public Quaternion GetSeatedRotation()
@@ -43,16 +68,18 @@ namespace RestaurantTycoon
             return sitPoint != null ? sitPoint.rotation : Quaternion.identity;
         }
 
-        public void Reserve(RTCustomer customer)
+        public bool Reserve(RTCustomer customer)
         {
-            if (isOccupied)
+            ClearMissingOccupant();
+            if (!IsAvailable)
             {
                 Debug.LogWarning("[RTDiningSeat] Already occupied!");
-                return;
+                return false;
             }
             isOccupied = true;
             occupyingCustomer = customer;
             Debug.Log("[RTDiningSeat] Seat reserved");
+            return true;
         }
 
         public void Release()
@@ -60,6 +87,15 @@ namespace RestaurantTycoon
             isOccupied = false;
             occupyingCustomer = null;
             Debug.Log("[RTDiningSeat] Seat released");
+        }
+
+        private void ClearMissingOccupant()
+        {
+            if (isOccupied && occupyingCustomer == null)
+            {
+                isOccupied = false;
+                occupyingCustomer = null;
+            }
         }
 
         private void OnDrawGizmos()

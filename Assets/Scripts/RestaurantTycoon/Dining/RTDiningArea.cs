@@ -18,11 +18,7 @@ namespace RestaurantTycoon
 
         private void Awake()
         {
-            if (tables.Count == 0)
-                tables.AddRange(GetComponentsInChildren<RTDiningTable>());
-
-            foreach (var table in tables)
-                table.OnDishesCleared += OnTableDishesCleared;
+            RefreshTables();
         }
 
         private void OnDestroy()
@@ -40,6 +36,8 @@ namespace RestaurantTycoon
 
         public RTDiningSeat FindAvailableSeat()
         {
+            RefreshTables();
+
             foreach (var table in tables)
             {
                 if (table == null || !table.gameObject.activeInHierarchy) continue;
@@ -51,6 +49,8 @@ namespace RestaurantTycoon
 
         public bool HasAvailableSeat()
         {
+            RefreshTables();
+
             foreach (var table in tables)
                 if (table != null && table.gameObject.activeInHierarchy && table.HasAvailableSeat()) return true;
             return false;
@@ -58,11 +58,36 @@ namespace RestaurantTycoon
 
         public int GetAvailableSeatCount()
         {
+            RefreshTables();
+
             int count = 0;
             foreach (var table in tables)
                 if (table != null && table.gameObject.activeInHierarchy)
                     count += table.GetAvailableSeatCount();
             return count;
+        }
+
+        private void RefreshTables()
+        {
+            for (int i = tables.Count - 1; i >= 0; i--)
+            {
+                if (tables[i] == null)
+                    tables.RemoveAt(i);
+            }
+
+            RTDiningTable[] childTables = GetComponentsInChildren<RTDiningTable>(true);
+            foreach (var table in childTables)
+            {
+                if (table == null || tables.Contains(table)) continue;
+
+                tables.Add(table);
+            }
+
+            foreach (var table in tables)
+            {
+                table.OnDishesCleared -= OnTableDishesCleared;
+                table.OnDishesCleared += OnTableDishesCleared;
+            }
         }
     }
 }
