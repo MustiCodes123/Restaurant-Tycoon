@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65ab5bb4796de974cab912bdc48689a3, type: 3}
   m_Name: avocado porter
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTStaffUpgradeData
-  upgradeId: Avocado Porter
+  upgradeId: Tomato Porter
   avatarSprite: {fileID: 0}
   upgradeLevels:
   - upgradeName: Level 1
