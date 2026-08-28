@@ -14,9 +14,10 @@ public class MoneyDrop : MonoBehaviour
     [Header("Stack Settings")]
     [SerializeField] private float stackSearchRadius = 1.75f;
     [SerializeField] private int stackColumns = 3;
+    [SerializeField] private int stackRowsPerLayer = 2;
     [SerializeField] private float stackSpacingX = 0.38f;
     [SerializeField] private float stackSpacingZ = 0.28f;
-    [SerializeField] private float stackLayerHeight = 0.018f;
+    [SerializeField] private float stackLayerHeight = 0.08f;
     [SerializeField] private float stackSettleDuration = 0.24f;
     [SerializeField] private float stackTiltDegrees = 5f;
 
@@ -215,8 +216,12 @@ public class MoneyDrop : MonoBehaviour
     private Vector3 GetStackOffset(int index)
     {
         int columns = Mathf.Max(1, stackColumns);
-        int column = index % columns;
-        int row = index / columns;
+        int rowsPerLayer = Mathf.Max(1, stackRowsPerLayer);
+        int slotsPerLayer = columns * rowsPerLayer;
+        int layer = index / slotsPerLayer;
+        int slotInLayer = index % slotsPerLayer;
+        int column = slotInLayer % columns;
+        int row = slotInLayer / columns;
 
         float x = (column - (columns - 1) * 0.5f) * stackSpacingX;
         float z = row * stackSpacingZ;
@@ -226,7 +231,7 @@ public class MoneyDrop : MonoBehaviour
             x += stackSpacingX * 0.35f;
         }
 
-        float y = row * stackLayerHeight;
+        float y = layer * stackLayerHeight;
         return new Vector3(x, y, z);
     }
 

@@ -39,6 +39,7 @@ namespace RestaurantTycoon
         public void OnPickedUp(Transform carryPoint)
         {
             isPickedUp = true;
+            sourceTable?.RemoveDirtyDish(this);
         }
 
         public void OnDropped()
@@ -51,6 +52,11 @@ namespace RestaurantTycoon
             transform.DOScale(Vector3.zero, 0.2f)
                 .SetEase(Ease.InBack)
                 .OnComplete(() => Destroy(gameObject));
+        }
+
+        private void OnDestroy()
+        {
+            sourceTable?.RemoveDirtyDish(this);
         }
     }
 }

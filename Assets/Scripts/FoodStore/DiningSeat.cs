@@ -29,8 +29,22 @@ public class DiningSeat : MonoBehaviour
     public Transform ApproachPoint => approachPoint;
     public DiningTable ParentTable => parentTable;
     public float EatingDuration => eatingDuration;
-    public bool IsOccupied => isOccupied;
-    public bool IsAvailable => !isOccupied && (parentTable == null || !parentTable.HasGarbage);
+    public bool IsOccupied
+    {
+        get
+        {
+            ClearMissingOccupant();
+            return isOccupied;
+        }
+    }
+    public bool IsAvailable
+    {
+        get
+        {
+            ClearMissingOccupant();
+            return !isOccupied && (parentTable == null || !parentTable.HasGarbage);
+        }
+    }
     public FoodCustomer OccupyingCustomer => occupyingCustomer;
     
     /// <summary>
@@ -87,18 +101,20 @@ public class DiningSeat : MonoBehaviour
     /// <summary>
     /// Reserve this seat for a customer
     /// </summary>
-    public void Reserve(FoodCustomer customer)
+    public bool Reserve(FoodCustomer customer)
     {
-        if (isOccupied)
+        ClearMissingOccupant();
+        if (!IsAvailable)
         {
             Debug.LogWarning("[DiningSeat] Seat is already occupied!");
-            return;
+            return false;
         }
         
         isOccupied = true;
         occupyingCustomer = customer;
         
         Debug.Log($"[DiningSeat] Seat reserved for customer");
+        return true;
     }
     
     /// <summary>
@@ -111,6 +127,15 @@ public class DiningSeat : MonoBehaviour
         
         Debug.Log($"[DiningSeat] Seat released");
     }
+
+    private void ClearMissingOccupant()
+    {
+            if (isOccupied && occupyingCustomer == null)
+            {
+                isOccupied = false;
+                occupyingCustomer = null;
+            }
+        }
     
     private void OnDrawGizmos()
     {

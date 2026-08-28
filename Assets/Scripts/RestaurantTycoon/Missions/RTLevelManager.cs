@@ -34,6 +34,7 @@ namespace RestaurantTycoon
 
         // Level-scoped earnings (reset each level)
         private int levelEarnings;
+        private string LevelEarningsKey => $"RTLevelEarnings_Level_{CurrentLevel}";
 
         public int CurrentLevel => currentLevelIndex + 1;
         public int LevelEarnings => levelEarnings;
@@ -69,10 +70,9 @@ namespace RestaurantTycoon
         private void LoadCurrentLevel()
         {
             isCompletingLevel = false;
-            levelEarnings = 0;
-
             int savedLevel = DataManager.Instance != null ? DataManager.Instance.CurrentLevel : 1;
             currentLevelIndex = savedLevel - 1;
+            levelEarnings = PlayerPrefs.GetInt(LevelEarningsKey, 0);
 
             if (currentLevelIndex >= 0 && currentLevelIndex < allLevels.Count)
             {
@@ -140,6 +140,7 @@ namespace RestaurantTycoon
 
             // Level-scoped tracking
             levelEarnings += amount;
+            SaveLevelEarnings();
 
             Log($"Money earned: ${amount}. Level total: ${levelEarnings}");
 
@@ -182,6 +183,7 @@ namespace RestaurantTycoon
 
             if (DataManager.Instance != null)
                 DataManager.Instance.CurrentLevel++;
+            PaymentProgressStore.Clear($"RTLevelEarnings_Level_{completedLevel}");
 
             OnLevelUp?.Invoke(CurrentLevel);
 
@@ -205,6 +207,12 @@ namespace RestaurantTycoon
         {
             if (showDebugLogs)
                 Debug.Log($"[RTLevelManager] {message}");
+        }
+
+        private void SaveLevelEarnings()
+        {
+            PlayerPrefs.SetInt(LevelEarningsKey, levelEarnings);
+            PlayerPrefs.Save();
         }
     }
 

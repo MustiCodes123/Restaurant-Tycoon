@@ -89,6 +89,7 @@ namespace RestaurantTycoon
 
         // Queue
         private int queuePosition;
+        private bool isInCounterQueue;
         private bool isMoving;
         private bool hasArrivedAtQueuePosition;
         private Vector3 currentDestination;
@@ -97,6 +98,7 @@ namespace RestaurantTycoon
         private RTDiningArea diningArea;
         private RTDiningSeat assignedSeat;
         private Coroutine eatingCoroutine;
+        private Coroutine seatRetryCoroutine;
 
         // Cashier
         private RTCashier targetCashier;
@@ -195,6 +197,7 @@ namespace RestaurantTycoon
                 return;
             }
 
+            isInCounterQueue = true;
             hasArrivedAtQueuePosition = false;
             currentState = RTCustomerState.MovingToCounter;
             MoveTo(targetCounter.GetQueueWorldPosition(queuePosition));
@@ -362,9 +365,6 @@ namespace RestaurantTycoon
         {
             HideWaitingUI();
 
-            // Remove from counter queue
-            targetCounter?.RemoveCustomer(this);
-
             if (diningArea != null)
             {
                 TryFindSeat();
@@ -372,6 +372,7 @@ namespace RestaurantTycoon
             else
             {
                 // No dining area configured - skip to leaving
+                LeaveCounterQueue();
                 StartLeaving();
             }
         }
@@ -386,28 +387,39 @@ namespace RestaurantTycoon
             if (seat != null)
             {
                 assignedSeat = seat;
-                seat.Reserve(this);
+                if (!seat.Reserve(this))
+                {
+                    assignedSeat = null;
+                    WaitForSeat();
+                    return;
+                }
+
+                LeaveCounterQueue();
                 currentState = RTCustomerState.MovingToTable;
 
-                Vector3 target = seat.ApproachPoint != null
-                    ? seat.ApproachPoint.position
-                    : seat.SitPoint.position;
-                MoveTo(target);
+                MoveTo(seat.GetNavigationTargetPosition());
 
                 Debug.Log("[RTCustomer] Moving to dining table");
             }
             else
             {
-                currentState = RTCustomerState.WaitingForSeat;
-                diningArea.OnSeatBecameAvailable += OnSeatBecameAvailable;
-
-                if (heldItems.Count > 0)
-                    SetLiftIdle(true);
-                else
-                    SetWalking(false);
-
-                Debug.Log("[RTCustomer] No seat available, waiting...");
+                WaitForSeat();
             }
+        }
+
+        private void WaitForSeat()
+        {
+            currentState = RTCustomerState.WaitingForSeat;
+            diningArea.OnSeatBecameAvailable -= OnSeatBecameAvailable;
+            diningArea.OnSeatBecameAvailable += OnSeatBecameAvailable;
+            StartSeatRetry();
+
+            if (heldItems.Count > 0)
+                SetLiftIdle(true);
+            else
+                SetWalking(false);
+
+            Debug.Log("[RTCustomer] No seat available, waiting...");
         }
 
         private void OnSeatBecameAvailable()
@@ -415,7 +427,40 @@ namespace RestaurantTycoon
             if (currentState != RTCustomerState.WaitingForSeat) return;
 
             diningArea.OnSeatBecameAvailable -= OnSeatBecameAvailable;
+            StopSeatRetry();
             TryFindSeat();
+        }
+
+        private void StartSeatRetry()
+        {
+            if (seatRetryCoroutine == null)
+                seatRetryCoroutine = StartCoroutine(SeatRetryCoroutine());
+        }
+
+        private void StopSeatRetry()
+        {
+            if (seatRetryCoroutine != null)
+            {
+                StopCoroutine(seatRetryCoroutine);
+                seatRetryCoroutine = null;
+            }
+        }
+
+        private IEnumerator SeatRetryCoroutine()
+        {
+            while (currentState == RTCustomerState.WaitingForSeat)
+            {
+                yield return new WaitForSeconds(0.5f);
+
+                if (currentState != RTCustomerState.WaitingForSeat) break;
+                if (diningArea == null || !diningArea.HasAvailableSeat()) continue;
+
+                seatRetryCoroutine = null;
+                OnSeatBecameAvailable();
+                yield break;
+            }
+
+            seatRetryCoroutine = null;
         }
 
         private void OnArrivedAtTable()
@@ -667,6 +712,8 @@ namespace RestaurantTycoon
             // Unsubscribe from dining events
             if (diningArea != null)
                 diningArea.OnSeatBecameAvailable -= OnSeatBecameAvailable;
+            StopSeatRetry();
+            LeaveCounterQueue();
 
             // Release seat if still assigned
             if (assignedSeat != null)
@@ -829,7 +876,22 @@ namespace RestaurantTycoon
                 StopCoroutine(eatingCoroutine);
             if (diningArea != null)
                 diningArea.OnSeatBecameAvailable -= OnSeatBecameAvailable;
+            StopSeatRetry();
+            LeaveCounterQueue();
+            if (assignedSeat != null)
+            {
+                assignedSeat.Release();
+                assignedSeat = null;
+            }
             DOTween.Kill(transform);
+        }
+
+        private void LeaveCounterQueue()
+        {
+            if (!isInCounterQueue) return;
+
+            targetCounter?.RemoveCustomer(this);
+            isInCounterQueue = false;
         }
     }
 }

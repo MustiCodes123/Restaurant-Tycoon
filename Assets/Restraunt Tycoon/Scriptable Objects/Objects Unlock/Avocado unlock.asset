@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RestaurantTycoon.RTSceneObjectUnlockData
   requiredPlayerLevel: 30
   unlockCost: 500
-  unlockName: Avocado Stall
+  unlockName: Tomato Stall
   description: 

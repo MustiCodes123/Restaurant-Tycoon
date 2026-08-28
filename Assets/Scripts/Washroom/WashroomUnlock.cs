@@ -40,6 +40,7 @@ public class WashroomUnlock : MonoBehaviour
     public bool IsUnlocked => isUnlocked;
     public WashroomUnlockData UnlockData => unlockData;
     public int UnlockCost => unlockData != null ? unlockData.UnlockCost : 0;
+    public string PaymentProgressKey => $"{SaveKey}_PaymentProgress";
     
     public event Action OnWashroomUnlocked;
     public event Action OnUnlockAvailable;
@@ -114,6 +115,7 @@ public class WashroomUnlock : MonoBehaviour
         if (isUnlocked) return;
         
         isUnlocked = true;
+        ClearPaymentProgress();
         SaveUnlockState();
         
         // Activate washroom with pop animation
@@ -222,6 +224,21 @@ public class WashroomUnlock : MonoBehaviour
         PlayerPrefs.SetInt(SaveKey, isUnlocked ? 1 : 0);
         PlayerPrefs.Save();
     }
+
+    public int LoadPaymentProgress()
+    {
+        return PaymentProgressStore.Load(PaymentProgressKey, UnlockCost);
+    }
+
+    public void SavePaymentProgress(int amount)
+    {
+        PaymentProgressStore.Save(PaymentProgressKey, amount, UnlockCost);
+    }
+
+    public void ClearPaymentProgress()
+    {
+        PaymentProgressStore.Clear(PaymentProgressKey);
+    }
     
     private void ActivateWithPopAnimation(GameObject obj)
     {
@@ -243,6 +260,7 @@ public class WashroomUnlock : MonoBehaviour
     public void ResetUnlockState()
     {
         PlayerPrefs.DeleteKey(SaveKey);
+        ClearPaymentProgress();
         isUnlocked = false;
         ApplyUnlockState();
         CheckUnlockAvailability();

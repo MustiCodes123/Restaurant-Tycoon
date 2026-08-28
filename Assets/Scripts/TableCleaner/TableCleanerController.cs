@@ -289,15 +289,7 @@ public class TableCleanerController : MonoBehaviour
         // Add to list
         carriedGarbage.Add(garbage);
         
-        // Notify table that garbage is picked up
-        if (garbage.SourceTable != null)
-        {
-            garbage.SourceTable.OnGarbagePickedUp();
-        }
-        
-        // Mark as picked up (prevent player from picking it up)
-        // We access IsPickedUp through reflection or add a method to Garbage class
-        // For now, we'll parent it and mark internally
+        garbage.MarkPickedUp();
         
         // Parent and animate to carry point
         garbage.transform.SetParent(carryPoint);

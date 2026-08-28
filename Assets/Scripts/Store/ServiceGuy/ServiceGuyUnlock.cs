@@ -49,6 +49,7 @@ public class ServiceGuyUnlock : MonoBehaviour
     public int UnlockCost => unlockData != null ? unlockData.UnlockCost : 0;
     public Store LinkedStore => linkedStore;
     public ServiceGuyController SpawnedServiceGuy => spawnedServiceGuy;
+    public string PaymentProgressKey => $"{SaveKey}_PaymentProgress";
     
     public event Action OnServiceGuyUnlocked;
     public event Action OnUnlockAvailable;
@@ -122,6 +123,7 @@ public class ServiceGuyUnlock : MonoBehaviour
         if (isUnlocked) return;
         
         isUnlocked = true;
+        ClearPaymentProgress();
         SaveUnlockState();
         
         // Spawn the service guy
@@ -264,6 +266,21 @@ public class ServiceGuyUnlock : MonoBehaviour
         PlayerPrefs.SetInt(SaveKey, isUnlocked ? 1 : 0);
         PlayerPrefs.Save();
     }
+
+    public int LoadPaymentProgress()
+    {
+        return PaymentProgressStore.Load(PaymentProgressKey, UnlockCost);
+    }
+
+    public void SavePaymentProgress(int amount)
+    {
+        PaymentProgressStore.Save(PaymentProgressKey, amount, UnlockCost);
+    }
+
+    public void ClearPaymentProgress()
+    {
+        PaymentProgressStore.Clear(PaymentProgressKey);
+    }
     
     private void ActivateWithPopAnimation(GameObject obj)
     {
@@ -285,6 +302,7 @@ public class ServiceGuyUnlock : MonoBehaviour
     public void ResetUnlockState()
     {
         PlayerPrefs.DeleteKey(SaveKey);
+        ClearPaymentProgress();
         isUnlocked = false;
         
         if (spawnedServiceGuy != null)

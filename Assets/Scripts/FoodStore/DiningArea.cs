@@ -20,17 +20,7 @@ public class DiningArea : MonoBehaviour
     
     private void Awake()
     {
-        // Auto-find tables if not assigned
-        if (tables.Count == 0)
-        {
-            tables.AddRange(GetComponentsInChildren<DiningTable>());
-        }
-        
-        // Subscribe to garbage cleared events from all tables
-        foreach (var table in tables)
-        {
-            table.OnGarbageCleared += OnTableGarbageCleared;
-        }
+        RefreshTables();
     }
     
     private void OnDestroy()
@@ -56,8 +46,12 @@ public class DiningArea : MonoBehaviour
     /// </summary>
     public DiningSeat FindAvailableSeat()
     {
+        RefreshTables();
+
         foreach (var table in tables)
         {
+            if (table == null || !table.gameObject.activeInHierarchy) continue;
+
             DiningSeat seat = table.GetAvailableSeat();
             if (seat != null)
             {
@@ -72,9 +66,11 @@ public class DiningArea : MonoBehaviour
     /// </summary>
     public bool HasAvailableSeat()
     {
+        RefreshTables();
+
         foreach (var table in tables)
         {
-            if (table.HasAvailableSeat())
+            if (table != null && table.gameObject.activeInHierarchy && table.HasAvailableSeat())
             {
                 return true;
             }
@@ -87,10 +83,15 @@ public class DiningArea : MonoBehaviour
     /// </summary>
     public int GetAvailableSeatCount()
     {
+        RefreshTables();
+
         int count = 0;
         foreach (var table in tables)
         {
-            count += table.GetAvailableSeatCount();
+            if (table != null && table.gameObject.activeInHierarchy)
+            {
+                count += table.GetAvailableSeatCount();
+            }
         }
         return count;
     }
@@ -103,8 +104,36 @@ public class DiningArea : MonoBehaviour
         int count = 0;
         foreach (var table in tables)
         {
-            count += table.Seats.Count;
+            if (table != null)
+            {
+                count += table.Seats.Count;
+            }
         }
         return count;
+    }
+
+    private void RefreshTables()
+    {
+        for (int i = tables.Count - 1; i >= 0; i--)
+        {
+            if (tables[i] == null)
+            {
+                tables.RemoveAt(i);
+            }
+        }
+
+        DiningTable[] childTables = GetComponentsInChildren<DiningTable>(true);
+        foreach (var table in childTables)
+        {
+            if (table == null || tables.Contains(table)) continue;
+
+            tables.Add(table);
+        }
+
+        foreach (var table in tables)
+        {
+            table.OnGarbageCleared -= OnTableGarbageCleared;
+            table.OnGarbageCleared += OnTableGarbageCleared;
+        }
     }
 }

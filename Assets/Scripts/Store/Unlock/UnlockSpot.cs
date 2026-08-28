@@ -97,6 +97,7 @@ public class UnlockSpot : MonoBehaviour
         if (CurrencyManager.Instance.SpendMoney(paymentAmount))
         {
             currentPayment += paymentAmount;
+            storeUnlock.SavePaymentProgress(currentPayment);
             
             // Trigger money flow animation
             if (Time.time - lastMoneyFlowTime >= moneyFlowInterval && moneyFlowEffect != null && playerTransform != null)
@@ -123,7 +124,7 @@ public class UnlockSpot : MonoBehaviour
     {
         storeUnlock = unlock;
         totalCost = unlock.UnlockCost;
-        currentPayment = 0;
+        currentPayment = unlock.LoadPaymentProgress();
         paymentTimer = 0f;
         
         UpdateUI();
@@ -174,7 +175,7 @@ public class UnlockSpot : MonoBehaviour
         
         if (progressFillImage != null)
         {
-            float progress = (float)currentPayment / totalCost;
+            float progress = totalCost > 0 ? (float)currentPayment / totalCost : 0f;
             progressFillImage.fillAmount = progress;
         }
     }
@@ -193,6 +194,7 @@ public class UnlockSpot : MonoBehaviour
         // Notify the StoreUnlock component
         if (storeUnlock != null)
         {
+            storeUnlock.ClearPaymentProgress();
             storeUnlock.CompleteUnlock();
         }
         

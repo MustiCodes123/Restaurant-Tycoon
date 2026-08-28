@@ -113,6 +113,7 @@ public class JanitorUnlockSpot : MonoBehaviour
         if (CurrencyManager.Instance.SpendMoney(paymentAmount))
         {
             currentPayment += paymentAmount;
+            janitorUnlock.SavePaymentProgress(currentPayment);
             
             // Trigger money flow animation
             if (Time.time - lastMoneyFlowTime >= moneyFlowInterval && moneyFlowEffect != null && playerTransform != null)
@@ -139,7 +140,7 @@ public class JanitorUnlockSpot : MonoBehaviour
     {
         janitorUnlock = unlock;
         totalCost = unlock.UnlockCost;
-        currentPayment = 0;
+        currentPayment = unlock.LoadPaymentProgress();
         paymentTimer = 0f;
         lastMoneyFlowTime = 0f;
         
@@ -211,7 +212,7 @@ public class JanitorUnlockSpot : MonoBehaviour
         
         if (progressFillImage != null)
         {
-            float progress = (float)currentPayment / totalCost;
+            float progress = totalCost > 0 ? (float)currentPayment / totalCost : 0f;
             progressFillImage.fillAmount = progress;
         }
     }
@@ -230,6 +231,7 @@ public class JanitorUnlockSpot : MonoBehaviour
         // Notify the JanitorUnlock component
         if (janitorUnlock != null)
         {
+            janitorUnlock.ClearPaymentProgress();
             janitorUnlock.CompleteUnlock();
         }
         

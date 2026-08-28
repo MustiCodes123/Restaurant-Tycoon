@@ -111,6 +111,7 @@ public class UpgradeSpot : MonoBehaviour
         if (CurrencyManager.Instance.SpendMoney(paymentAmount))
         {
             remainingCost -= paymentAmount;
+            currentStoreUpgrade.SavePaymentProgress(totalUpgradeCost - remainingCost);
             
             // Trigger money flow animation from player to upgrade spot
             if (moneyFlowEffect != null && playerTransform != null)
@@ -165,7 +166,8 @@ public class UpgradeSpot : MonoBehaviour
         if (nextUpgrade != null)
         {
             totalUpgradeCost = nextUpgrade.upgradeCost;
-            remainingCost = totalUpgradeCost;
+            int savedPayment = storeUpgrade.LoadPaymentProgress();
+            remainingCost = Mathf.Max(0, totalUpgradeCost - savedPayment);
             
             if (levelText != null)
             {

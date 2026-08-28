@@ -103,14 +103,7 @@ public class Garbage : MonoBehaviour
         // Try to pick up
         if (carryController.TryPickupGarbage(this))
         {
-            isPickedUp = true;
-            
-            // Notify table
-            if (sourceTable != null)
-            {
-                sourceTable.OnGarbagePickedUp();
-            }
-            
+            MarkPickedUp();
             Debug.Log("[Garbage] Picked up by player");
         }
         else
@@ -130,5 +123,25 @@ public class Garbage : MonoBehaviour
             .OnComplete(() => {
                 Destroy(gameObject);
             });
+    }
+
+    public void MarkPickedUp()
+    {
+        if (isPickedUp) return;
+
+        isPickedUp = true;
+
+        if (sourceTable != null)
+        {
+            sourceTable.OnGarbagePickedUp();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (!isPickedUp && sourceTable != null)
+        {
+            sourceTable.OnGarbagePickedUp();
+        }
     }
 }

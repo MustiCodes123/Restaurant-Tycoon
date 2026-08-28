@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using DG.Tweening;
+using System.Collections;
 
 /// <summary>
 /// Extended customer behavior for food stores.
@@ -91,6 +92,7 @@ public class FoodCustomer : MonoBehaviour, IQueueableCustomer
     private bool isMoving;
     private float observationTimer;
     private float eatingTimer;
+    private Coroutine seatRetryCoroutine;
     
     // Tweens
     private Tween waitingUITween;
@@ -131,6 +133,12 @@ public class FoodCustomer : MonoBehaviour, IQueueableCustomer
     {
         waitingUITween?.Kill();
         observingUITween?.Kill();
+        StopSeatRetry();
+        if (assignedSeat != null)
+        {
+            assignedSeat.Release();
+            assignedSeat = null;
+        }
     }
     
     /// <summary>
@@ -487,7 +495,12 @@ public class FoodCustomer : MonoBehaviour, IQueueableCustomer
         if (assignedSeat == null) return;
         
         // Reserve the seat
-        assignedSeat.Reserve(this);
+        if (!assignedSeat.Reserve(this))
+        {
+            assignedSeat = null;
+            OnNoSeatAvailable();
+            return;
+        }
         
         // Move to NavMesh-friendly approach position first
         currentState = FoodCustomerState.MovingToTable;
@@ -522,8 +535,8 @@ public class FoodCustomer : MonoBehaviour, IQueueableCustomer
             agent.isStopped = true;
             agent.ResetPath();
             agent.velocity = Vector3.zero;
-            agent.updatePosition = false;  // Prevent NavMesh from moving transform
-            agent.updateRotation = false;
+            agent.updatePosition = true;
+            agent.updateRotation = true;
         }
         SetWalking(false);
         SetLiftIdle(true);  // Show lift idle animation (holding tray, not moving)
@@ -547,6 +560,7 @@ public class FoodCustomer : MonoBehaviour, IQueueableCustomer
         
         // Notify food store we're blocking the queue
         targetFoodStore?.OnCustomerWaitingForSeat(this);
+        StartSeatRetry();
         
         Debug.Log("[FoodCustomer] No seat available - waiting in pickup queue for seat to clear");
     }
@@ -599,12 +613,48 @@ public class FoodCustomer : MonoBehaviour, IQueueableCustomer
             }
             
             // Move to seat
+            StopSeatRetry();
             MoveToSeat();
         }
         else
         {
             Debug.Log("[FoodCustomer] Seat became available but couldn't find one - still waiting");
+            StartSeatRetry();
         }
+    }
+
+    private void StartSeatRetry()
+    {
+        if (seatRetryCoroutine == null)
+        {
+            seatRetryCoroutine = StartCoroutine(SeatRetryCoroutine());
+        }
+    }
+
+    private void StopSeatRetry()
+    {
+        if (seatRetryCoroutine != null)
+        {
+            StopCoroutine(seatRetryCoroutine);
+            seatRetryCoroutine = null;
+        }
+    }
+
+    private IEnumerator SeatRetryCoroutine()
+    {
+        while (currentState == FoodCustomerState.NoSeatAvailable)
+        {
+            yield return new WaitForSeconds(0.5f);
+
+            if (currentState != FoodCustomerState.NoSeatAvailable) break;
+            if (targetFoodStore == null || !targetFoodStore.HasAvailableSeat()) continue;
+
+            seatRetryCoroutine = null;
+            OnSeatBecameAvailable();
+            yield break;
+        }
+
+        seatRetryCoroutine = null;
     }
     
     private void OnArrivedAtTable()

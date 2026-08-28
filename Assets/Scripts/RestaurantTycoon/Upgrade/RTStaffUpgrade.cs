@@ -67,6 +67,7 @@ namespace RestaurantTycoon
         public bool IsInteractionAvailable => isActiveAndEnabled && IsUnlockedForCurrentPlayerLevel;
         public bool CanAffordNextLevel =>
             CanUpgrade && CurrencyManager.Instance != null && CurrencyManager.Instance.CurrentMoney >= NextLevel.cost;
+        public string PaymentProgressKey => $"{SaveKey}_PaymentProgress_Level_{currentLevel + 1}";
 
         // ── Unity ─────────────────────────────────────────────────────────────
 
@@ -181,6 +182,7 @@ namespace RestaurantTycoon
             var level = upgradeData.GetLevel(currentLevel);
             if (level == null) return;
 
+            ClearPaymentProgress();
             currentLevel++;
             SaveState();
 
@@ -210,7 +212,7 @@ namespace RestaurantTycoon
                 return false;
             }
 
-            int cost = Mathf.Max(0, NextLevel.cost);
+            int cost = Mathf.Max(0, NextLevel.cost - LoadPaymentProgress());
             if (cost > 0 && !CurrencyManager.Instance.SpendMoney(cost))
                 return false;
 
@@ -327,11 +329,30 @@ namespace RestaurantTycoon
             PlayerPrefs.Save();
         }
 
+        public int LoadPaymentProgress()
+        {
+            int cost = NextLevel != null ? NextLevel.cost : 0;
+            return PaymentProgressStore.Load(PaymentProgressKey, cost);
+        }
+
+        public void SavePaymentProgress(int amount)
+        {
+            int cost = NextLevel != null ? NextLevel.cost : 0;
+            PaymentProgressStore.Save(PaymentProgressKey, amount, cost);
+        }
+
+        public void ClearPaymentProgress()
+        {
+            PaymentProgressStore.Clear(PaymentProgressKey);
+        }
+
         [ContextMenu("Reset Upgrade State")]
         private void ResetState()
         {
+            ClearPaymentProgress();
             PlayerPrefs.DeleteKey(SaveKey);
             currentLevel = 0;
+            ClearPaymentProgress();
             ApplyCurrentUpgrade();
             CheckAvailability();
         }

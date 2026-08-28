@@ -133,7 +133,7 @@ namespace RestaurantTycoon
             finishedItem.PlaySpawnAnimation();
 
             if (AudioManager.Instance != null)
-                AudioManager.Instance.PlaySFX(SoundEffect.CookingDone);
+                AudioManager.Instance.PlaySFX(SoundEffect.FoodPreparing);
         }
     }
 }

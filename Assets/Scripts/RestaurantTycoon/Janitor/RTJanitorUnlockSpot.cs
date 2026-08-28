@@ -94,7 +94,7 @@ namespace RestaurantTycoon
 
             janitorUnlock = unlock;
             totalCost = unlock.UnlockCost;
-            currentPayment = 0;
+            currentPayment = unlock.LoadPaymentProgress();
             isPaymentActive = false;
 
             if (nameText != null && unlock.UnlockData != null)
@@ -188,10 +188,11 @@ namespace RestaurantTycoon
             int amount = Mathf.Min(Mathf.CeilToInt(paymentRate * paymentInterval), remaining);
             if (amount <= 0) return;
 
-            if (CurrencyManager.Instance.SpendMoney(amount))
-            {
-                currentPayment += amount;
-                UpdateUI();
+        if (CurrencyManager.Instance.SpendMoney(amount))
+        {
+            currentPayment += amount;
+            janitorUnlock.SavePaymentProgress(currentPayment);
+            UpdateUI();
 
                 // Money flow effect
                 if (moneyFlowEffect != null && playerTransform != null &&
@@ -220,6 +221,7 @@ namespace RestaurantTycoon
                 canvas.transform.DOScale(Vector3.zero, hideDuration).SetEase(hideEase);
             }
 
+            janitorUnlock?.ClearPaymentProgress();
             janitorUnlock?.CompleteUnlock();
         }
 

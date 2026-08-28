@@ -126,7 +126,7 @@ namespace RestaurantTycoon
 
             owner = upgrade;
             totalCost = upgrade.NextLevel != null ? upgrade.NextLevel.cost : 0;
-            currentPayment = 0;
+            currentPayment = upgrade.LoadPaymentProgress();
             isPaymentActive = false;
 
             RefreshUI();
@@ -191,10 +191,11 @@ namespace RestaurantTycoon
             amount = Mathf.Min(amount, CurrencyManager.Instance.CurrentMoney);
             if (amount <= 0) return;
 
-            if (CurrencyManager.Instance.SpendMoney(amount))
-            {
-                currentPayment += amount;
-                RefreshUI();
+        if (CurrencyManager.Instance.SpendMoney(amount))
+        {
+            currentPayment += amount;
+            owner.SavePaymentProgress(currentPayment);
+            RefreshUI();
 
                 if (moneyFlowEffect != null && playerTransform != null &&
                     Time.time - lastMoneyFlowTime >= moneyFlowInterval)

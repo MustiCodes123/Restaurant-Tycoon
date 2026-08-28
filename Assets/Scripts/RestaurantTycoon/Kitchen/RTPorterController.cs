@@ -501,11 +501,10 @@ namespace RestaurantTycoon
 
             if (IsCarryingIngredient)
             {
-                // Determine if moving based on the current state
-                bool isMoving = currentState == RTPorterState.MovingToIngredientContainer ||
-                               currentState == RTPorterState.MovingToInputContainer ||
-                               currentState == RTPorterState.MovingToIdle ||
-                               currentState == RTPorterState.CollectingIngredient;
+                animator.SetBool(walkBoolName, false);
+
+                bool isMoving = currentState == RTPorterState.MovingToInputContainer ||
+                                currentState == RTPorterState.MovingToIdle;
 
                 if (isMoving)
                 {

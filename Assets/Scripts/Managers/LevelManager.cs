@@ -34,6 +34,7 @@ public class LevelManager : MonoBehaviour
     private int baselineEarnings;
     private int baselineTotalCustomersServed;
     private Dictionary<string, int> baselineCustomersServedAtStores = new Dictionary<string, int>();
+    private string LevelBaselinePrefix => $"Level_{CurrentLevel}_Baseline_";
     
     public event Action<int> OnLevelUp;
     public event Action OnMissionProgressUpdated;
@@ -191,6 +192,7 @@ public class LevelManager : MonoBehaviour
         // Advance to next level
         if (DataManager.Instance != null)
             DataManager.Instance.CurrentLevel++;
+        ClearBaselineValues(completedLevel);
         
         OnLevelUp?.Invoke(CurrentLevel);
         
@@ -220,8 +222,8 @@ public class LevelManager : MonoBehaviour
     {
         if (DataManager.Instance == null) return;
         
-        baselineEarnings = DataManager.Instance.TotalEarnings;
-        baselineTotalCustomersServed = DataManager.Instance.TotalCustomersServed;
+        baselineEarnings = LoadOrCreateBaseline("Earnings", DataManager.Instance.TotalEarnings);
+        baselineTotalCustomersServed = LoadOrCreateBaseline("TotalCustomersServed", DataManager.Instance.TotalCustomersServed);
         baselineCustomersServedAtStores.Clear();
         
         Log($"Captured baselines - Earnings: {baselineEarnings}, Customers: {baselineTotalCustomersServed}");
@@ -256,7 +258,7 @@ public class LevelManager : MonoBehaviour
         if (!baselineCustomersServedAtStores.TryGetValue(storeName, out baseline))
         {
             // First time checking this store in this level, capture baseline now
-            baseline = DataManager.Instance.GetCustomersServedAtStore(storeName);
+            baseline = LoadOrCreateBaseline($"Store_{storeName}", DataManager.Instance.GetCustomersServedAtStore(storeName));
             baselineCustomersServedAtStores[storeName] = baseline;
         }
         
@@ -267,6 +269,33 @@ public class LevelManager : MonoBehaviour
     {
         if (showDebugLogs)
             Debug.Log($"[LevelManager] {message}");
+    }
+
+    private int LoadOrCreateBaseline(string keySuffix, int currentValue)
+    {
+        string key = LevelBaselinePrefix + keySuffix;
+        if (PlayerPrefs.HasKey(key))
+        {
+            return PlayerPrefs.GetInt(key, currentValue);
+        }
+
+        PlayerPrefs.SetInt(key, currentValue);
+        PlayerPrefs.Save();
+        return currentValue;
+    }
+
+    private void ClearBaselineValues(int level)
+    {
+        string prefix = $"Level_{level}_Baseline_";
+        PlayerPrefs.DeleteKey(prefix + "Earnings");
+        PlayerPrefs.DeleteKey(prefix + "TotalCustomersServed");
+
+        foreach (string storeName in baselineCustomersServedAtStores.Keys)
+        {
+            PlayerPrefs.DeleteKey(prefix + $"Store_{storeName}");
+        }
+
+        PlayerPrefs.Save();
     }
     
     #region Debug Methods

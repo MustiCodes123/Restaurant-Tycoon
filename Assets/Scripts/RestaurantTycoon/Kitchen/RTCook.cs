@@ -249,7 +249,7 @@ namespace RestaurantTycoon
             finishedItem.PlaySpawnAnimation();
 
             if (AudioManager.Instance != null)
-                AudioManager.Instance.PlaySFX(SoundEffect.CookingDone);
+                AudioManager.Instance.PlaySFX(SoundEffect.FoodPreparing);
 
             Debug.Log($"[RTCook] Finished item produced and sent to output. Output: {outputContainer.StoredCount}/{outputContainer.SlotCount}");
         }

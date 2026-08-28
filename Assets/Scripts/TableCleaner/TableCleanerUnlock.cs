@@ -56,6 +56,7 @@ public class TableCleanerUnlock : MonoBehaviour
     public TableCleanerUnlockData UnlockData => unlockData;
     public int UnlockCost => unlockData != null ? unlockData.UnlockCost : 0;
     public TableCleanerController SpawnedCleaner => spawnedCleaner;
+    public string PaymentProgressKey => $"{SaveKey}_PaymentProgress";
     
     public event Action OnTableCleanerUnlocked;
     public event Action OnUnlockAvailable;
@@ -131,6 +132,7 @@ public class TableCleanerUnlock : MonoBehaviour
         if (isUnlocked) return;
         
         isUnlocked = true;
+        ClearPaymentProgress();
         SaveUnlockState();
         
         // Spawn the table cleaner
@@ -261,6 +263,21 @@ public class TableCleanerUnlock : MonoBehaviour
         PlayerPrefs.SetInt(SaveKey, isUnlocked ? 1 : 0);
         PlayerPrefs.Save();
     }
+
+    public int LoadPaymentProgress()
+    {
+        return PaymentProgressStore.Load(PaymentProgressKey, UnlockCost);
+    }
+
+    public void SavePaymentProgress(int amount)
+    {
+        PaymentProgressStore.Save(PaymentProgressKey, amount, UnlockCost);
+    }
+
+    public void ClearPaymentProgress()
+    {
+        PaymentProgressStore.Clear(PaymentProgressKey);
+    }
     
     /// <summary>
     /// Activates a GameObject with a pop/wobble animation
@@ -293,6 +310,7 @@ public class TableCleanerUnlock : MonoBehaviour
     public void ResetUnlockState()
     {
         PlayerPrefs.DeleteKey(SaveKey);
+        ClearPaymentProgress();
         isUnlocked = false;
         
         // Destroy spawned cleaner if exists
