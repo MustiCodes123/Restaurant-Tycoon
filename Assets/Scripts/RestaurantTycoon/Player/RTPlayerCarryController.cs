@@ -144,8 +144,17 @@ namespace RestaurantTycoon
             Transform itemTransform = item.GameObject.transform;
 
             // Complete any active tweens so item reaches its intended final scale/position
-            DOTween.Kill(itemTransform, true);
-            Vector3 targetWorldScale = itemTransform.lossyScale;
+            Vector3 targetWorldScale;
+            if (item.GameObject.TryGetComponent(out RTIngredient ingredient))
+            {
+                ingredient.CompleteActiveAnimation(true);
+                targetWorldScale = ingredient.RestingWorldScale;
+            }
+            else
+            {
+                DOTween.Kill(itemTransform, true);
+                targetWorldScale = itemTransform.lossyScale;
+            }
 
             // Parent immediately, then compensate scale against the carry point.
             itemTransform.SetParent(carryBasePoint);
@@ -155,7 +164,7 @@ namespace RestaurantTycoon
             // Mark as animating so LateUpdate doesn't interfere
             animatingItems.Add(itemTransform);
 
-            Sequence pickupSequence = DOTween.Sequence();
+            Sequence pickupSequence = DOTween.Sequence().SetTarget(itemTransform);
             pickupSequence.Append(itemTransform.DOLocalJump(localTarget, pickupJumpHeight, 1, pickupDuration));
             pickupSequence.Join(itemTransform.DOLocalRotate(Vector3.zero, pickupDuration));
             pickupSequence.OnComplete(() =>

@@ -19,20 +19,38 @@ namespace RestaurantTycoon
         [SerializeField] private Ease spawnPopEase = Ease.OutBack;
 
         private bool isPickedUp = false;
+        private bool hasRestingLocalScale = false;
+        private Vector3 restingLocalScale = Vector3.one;
+        private Vector3 restingWorldScale = Vector3.one;
+        private Tween activeAnimation;
 
         public CarryableType CarryType => CarryableType.Ingredient;
         public GameObject GameObject => gameObject;
         public bool IsPickedUp => isPickedUp;
         public RTIngredientType IngredientType => ingredientType;
+        public Vector3 RestingWorldScale => GetRestingWorldScale();
+
+        private void Awake()
+        {
+            RememberRestingScale(transform.localScale);
+        }
 
         public void PlaySpawnAnimation()
         {
-            Vector3 originalScale = transform.localScale;
+            CompleteActiveAnimation(false);
+            Vector3 originalScale = GetRestingLocalScale();
             transform.localScale = Vector3.zero;
 
-            transform.DOScale(originalScale * spawnPopScale, spawnPopDuration * 0.6f)
-                .SetEase(spawnPopEase)
-                .OnComplete(() => transform.DOScale(originalScale, spawnPopDuration * 0.4f));
+            Sequence seq = DOTween.Sequence().SetTarget(transform);
+            seq.Append(transform.DOScale(originalScale * spawnPopScale, spawnPopDuration * 0.6f)
+                .SetEase(spawnPopEase));
+            seq.Append(transform.DOScale(originalScale, spawnPopDuration * 0.4f));
+            seq.OnComplete(() =>
+            {
+                transform.localScale = originalScale;
+                activeAnimation = null;
+            });
+            activeAnimation = seq;
         }
 
         /// <summary>
@@ -40,22 +58,30 @@ namespace RestaurantTycoon
         /// </summary>
         public void AnimateToSpot(Vector3 fromPosition, Transform spotTransform, float duration, System.Action onComplete = null)
         {
+            CompleteActiveAnimation(false);
             transform.position = fromPosition;
-            Vector3 originalScale = transform.localScale; // preserve the prefab's set scale
+            Vector3 originalScale = GetRestingLocalScale();
             transform.localScale = Vector3.zero;
 
-            Sequence seq = DOTween.Sequence();
+            Sequence seq = DOTween.Sequence().SetTarget(transform);
             seq.Append(transform.DOScale(originalScale, duration * 0.3f)
                 .SetEase(Ease.OutBack));
             seq.Join(transform.DOJump(spotTransform.position, 1f, 1, duration)
                 .SetEase(Ease.OutQuad));
             seq.Join(transform.DORotate(spotTransform.eulerAngles, duration));
-            seq.OnComplete(() => onComplete?.Invoke());
+            seq.OnComplete(() =>
+            {
+                transform.localScale = originalScale;
+                activeAnimation = null;
+                onComplete?.Invoke();
+            });
+            activeAnimation = seq;
         }
 
         public void OnPickedUp(Transform carryPoint)
         {
             isPickedUp = true;
+            CompleteActiveAnimation(true);
             // Parenting and jump animation handled by RTPlayerCarryController
         }
 
@@ -67,9 +93,48 @@ namespace RestaurantTycoon
 
         public void OnDisposed()
         {
+            CompleteActiveAnimation(false);
             transform.DOScale(Vector3.zero, 0.2f)
                 .SetEase(Ease.InBack)
                 .OnComplete(() => Destroy(gameObject));
+        }
+
+        public void CompleteActiveAnimation(bool snapToRestingScale)
+        {
+            if (activeAnimation != null && activeAnimation.IsActive())
+                activeAnimation.Kill(snapToRestingScale);
+
+            activeAnimation = null;
+            DOTween.Kill(transform, snapToRestingScale);
+
+            if (snapToRestingScale)
+                transform.localScale = GetRestingLocalScale();
+        }
+
+        private Vector3 GetRestingLocalScale()
+        {
+            if (!hasRestingLocalScale)
+                RememberRestingScale(transform.localScale);
+
+            return restingLocalScale;
+        }
+
+        private Vector3 GetRestingWorldScale()
+        {
+            if (!hasRestingLocalScale)
+                RememberRestingScale(transform.localScale);
+
+            return restingWorldScale;
+        }
+
+        private void RememberRestingScale(Vector3 scale)
+        {
+            if (scale.sqrMagnitude <= 0.0001f)
+                return;
+
+            restingLocalScale = scale;
+            restingWorldScale = transform.lossyScale.sqrMagnitude > 0.0001f ? transform.lossyScale : scale;
+            hasRestingLocalScale = true;
         }
     }
 }

@@ -40,6 +40,7 @@ namespace RestaurantTycoon
 
         // Current ingredients on the container (index matches stockSlots)
         private RTIngredient[] stockedIngredients;
+        private bool[] stockedIngredientReady;
         private bool playerInRange = false;
         private RTPlayerCarryController playerCarryController;
         private Transform playerTransform;
@@ -68,8 +69,7 @@ namespace RestaurantTycoon
 
         public void RefillAllEmptySlotsImmediate()
         {
-            if (stockedIngredients == null)
-                stockedIngredients = new RTIngredient[stockSlots.Count];
+            EnsureStockArrays();
 
             if (restockCoroutine != null)
             {
@@ -90,7 +90,7 @@ namespace RestaurantTycoon
 
         private void Start()
         {
-            stockedIngredients = new RTIngredient[stockSlots.Count];
+            EnsureStockArrays();
 
             // Find player
             GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -130,6 +130,7 @@ namespace RestaurantTycoon
             // Restart production whenever this container is re-enabled (e.g. unlocked mid-game).
             // OnEnable fires BEFORE Start on first activation, so guard until the array exists.
             if (stockedIngredients == null) return;
+            EnsureStockArrays();
             StartRestock();
         }
 
@@ -176,6 +177,7 @@ namespace RestaurantTycoon
 
         private void SpawnIngredientAtSlot(int slotIndex)
         {
+            EnsureStockArrays();
             if (ingredientPrefab == null || slotIndex < 0 || slotIndex >= stockSlots.Count) return;
 
             Transform slot = stockSlots[slotIndex];
@@ -198,6 +200,7 @@ namespace RestaurantTycoon
             }
 
             stockedIngredients[slotIndex] = ingredient;
+            stockedIngredientReady[slotIndex] = false;
 
             // Notify crop animators that a new ingredient has been produced
             TriggerCropAnimators();
@@ -208,6 +211,15 @@ namespace RestaurantTycoon
                 // Snap to slot after animation
                 obj.transform.position = slot.position;
                 obj.transform.rotation = slot.rotation;
+                ingredient.CompleteActiveAnimation(true);
+
+                if (stockedIngredients[slotIndex] == ingredient)
+                {
+                    stockedIngredientReady[slotIndex] = true;
+
+                    if (playerInRange && pickupCoroutine == null)
+                        StartPickup();
+                }
             });
         }
 
@@ -291,12 +303,12 @@ namespace RestaurantTycoon
                     continue;
                 }
 
-                // Find the topmost stocked ingredient (highest slot index)
+                // Find the topmost ready stocked ingredient (highest slot index)
                 RTIngredient topIngredient = null;
                 int topIndex = -1;
                 for (int i = stockSlots.Count - 1; i >= 0; i--)
                 {
-                    if (stockedIngredients[i] != null)
+                    if (IsSlotReady(i))
                     {
                         topIngredient = stockedIngredients[i];
                         topIndex = i;
@@ -313,10 +325,11 @@ namespace RestaurantTycoon
                 }
 
                 // Complete any running spawn/restock tweens (snaps to intended final scale)
-                DOTween.Kill(topIngredient.transform, true);
+                topIngredient.CompleteActiveAnimation(true);
 
                 // Remove from container
                 stockedIngredients[topIndex] = null;
+                stockedIngredientReady[topIndex] = false;
 
                 // Hand to player carry system
                 if (playerCarryController.TryPickup(topIngredient))
@@ -327,6 +340,7 @@ namespace RestaurantTycoon
                 {
                     // Failed to pick up, put it back
                     stockedIngredients[topIndex] = topIngredient;
+                    stockedIngredientReady[topIndex] = true;
                 }
 
                 // Trigger restock if we have empty slots
@@ -353,11 +367,12 @@ namespace RestaurantTycoon
         {
             for (int i = stockSlots.Count - 1; i >= 0; i--)
             {
-                if (stockedIngredients[i] != null)
+                if (IsSlotReady(i))
                 {
                     RTIngredient ingredient = stockedIngredients[i];
-                    DOTween.Kill(ingredient.transform, true);
+                    ingredient.CompleteActiveAnimation(true);
                     stockedIngredients[i] = null;
+                    stockedIngredientReady[i] = false;
 
                     if (!IsFull && !isRestocking)
                         StartRestock();
@@ -370,5 +385,25 @@ namespace RestaurantTycoon
         }
 
         #endregion
+
+        private void EnsureStockArrays()
+        {
+            if (stockedIngredients == null || stockedIngredients.Length != stockSlots.Count)
+                stockedIngredients = new RTIngredient[stockSlots.Count];
+
+            if (stockedIngredientReady == null || stockedIngredientReady.Length != stockSlots.Count)
+                stockedIngredientReady = new bool[stockSlots.Count];
+        }
+
+        private bool IsSlotReady(int slotIndex)
+        {
+            return stockedIngredients != null
+                && stockedIngredientReady != null
+                && slotIndex >= 0
+                && slotIndex < stockedIngredients.Length
+                && slotIndex < stockedIngredientReady.Length
+                && stockedIngredients[slotIndex] != null
+                && stockedIngredientReady[slotIndex];
+        }
     }
 }
